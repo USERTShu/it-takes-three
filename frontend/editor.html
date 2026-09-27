@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>编辑器 · 远程 VP 协作编辑器</title>
   <link rel="stylesheet" href="/vendor/monaco-editor-0.52.2/min/vs/editor/editor.main.css">
-  <link rel="stylesheet" href="/css/app.css?v=2">
-  <link rel="stylesheet" href="/css/cursors.css?v=2">
-  <link rel="stylesheet" href="/css/run-panel.css?v=2">
+  <link rel="stylesheet" href="/css/app.css?v=4">
+  <link rel="stylesheet" href="/css/cursors.css?v=4">
+  <link rel="stylesheet" href="/css/run-panel.css?v=4">
   <script type="importmap">
   {
     "imports": {
@@ -55,6 +55,12 @@
       <label class="toggle-names" title="显示/隐藏远端用户名标签">
         <input type="checkbox" id="toggle-names" checked> 名称
       </label>
+      <span id="save-hint" class="save-hint hidden"></span>
+      <span class="run-bar">
+        <button id="btn-run" class="run-btn" title="运行（编译并执行当前文件，Ctrl+F5）">▶ 运行</button>
+        <button id="btn-debug" class="run-btn" title="调试（断点/单步/变量，F5）">● 调试</button>
+        <button id="btn-stop" class="run-btn danger hidden" title="停止">■ 停止</button>
+      </span>
     </div>
   </header>
 
@@ -75,19 +81,14 @@
     </aside>
     <div class="editor-main">
     <main id="editor-container" class="editor-container">
-      <div id="run-bar" class="run-bar">
-        <button id="btn-run" class="run-btn" title="运行（编译并执行当前文件，Ctrl+F5）">▶ 运行</button>
-        <button id="btn-debug" class="run-btn" title="调试（断点/单步/变量，F5）">● 调试</button>
-        <button id="btn-stop" class="run-btn danger hidden" title="停止">■ 停止</button>
-        <span id="debug-toolbar" class="debug-toolbar hidden" title="调试工具栏">
-          <button data-dbg="continue" title="继续 (F5)">▶</button>
-          <button data-dbg="next" title="单步跳过 (F10)">⏷</button>
-          <button data-dbg="step" title="单步进入 (F11)">⏷</button>
-          <button data-dbg="finish" title="单步跳出 (Shift+F11)">⏸</button>
-          <button data-dbg="restart" title="重启">⟳</button>
-          <button data-dbg="stop" title="停止">■</button>
-        </span>
-      </div>
+      <span id="debug-toolbar" class="debug-toolbar hidden" title="调试工具栏">
+        <button data-dbg="continue" title="继续 (F5)">▶</button>
+        <button data-dbg="next" title="单步跳过 (F10)">⏷</button>
+        <button data-dbg="step" title="单步进入 (F11)">⏷</button>
+        <button data-dbg="finish" title="单步跳出 (Shift+F11)">⏸</button>
+        <button data-dbg="restart" title="重启">⟳</button>
+        <button data-dbg="stop" title="停止">■</button>
+      </span>
     </main>
     <section id="run-panel" class="run-panel hidden">
       <div class="run-panel-header">
@@ -140,8 +141,8 @@
     </div>
   </div>
 
-  <script src="/js/auth.js"></script>
-  <script src="/js/api.js"></script>
-  <script type="module" src="/js/app-editor.js"></script>
+  <script src="/js/auth.js?v=4"></script>
+  <script src="/js/api.js?v=4"></script>
+  <script type="module" src="/js/app-editor.js?v=4"></script>
 </body>
 </html>

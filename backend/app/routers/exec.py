@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from ..config import get_settings
 from ..db import SessionLocal
-from ..exec import RunProcess, cleanup_workdir, compile_program, make_workdir, sanitize_path
+from ..exec import RunProcess, cleanup_workdir, compile_program, make_workdir, sanitize_path, sync_room_files
 from ..models import Contest, ContestMember
 from ..security import get_user_by_token
 from ..state import rooms
@@ -149,6 +149,8 @@ async def _run_program(room, path: str, session: _Session, evt_q: asyncio.Queue)
     """功能：后台任务——编译并运行，事件全部入队由主循环转发。
     API: _run_program(ContestRoom, str, _Session, Queue) → None
     依赖：exec。可调参数：无。"""
+    # 先把房间全部文件写入工作目录（数据文件 in 等，支持 freopen 模式）
+    sync_room_files(room, session.workdir)
     ok, err, bin_path = await compile_program(room, path, debug=False, workdir=session.workdir)
     if not ok:
         evt_q.put_nowait({"t": "compile", "ok": False, "error": err or "编译失败"})
@@ -252,6 +254,8 @@ async def _start_gdb(room, path: str, session: _Session, emit, evt_q: asyncio.Qu
     """功能：后台任务——编译(-g)后启动 gdb 会话并自动运行程序。
     API: _start_gdb(ContestRoom, str, _Session, callable, Queue) → None
     依赖：exec、yws.gdbmi。可调参数：无。"""
+    # 先把房间全部文件写入工作目录（数据文件 in 等，支持 freopen 模式）
+    sync_room_files(room, session.workdir)
     ok, err, bin_path = await compile_program(room, path, debug=True, workdir=session.workdir)
     if not ok:
         evt_q.put_nowait({"t": "compile", "ok": False, "error": err or "编译失败"})

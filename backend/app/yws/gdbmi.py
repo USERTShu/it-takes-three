@@ -37,7 +37,8 @@ class GdbSession:
         self.source_path = source_path
         self.emit = emit  # callable(evt_dict)：线程安全地把事件交给 asyncio 队列
         self.controller = GdbController(
-            command=[_settings.GDB_BIN, "--nx", "--quiet", "--interpreter=mi3", bin_path])
+            command=["env", "-u", "LD_PRELOAD",
+                     _settings.GDB_BIN, "--nx", "--quiet", "--interpreter=mi3", bin_path])
         self.breakpoints: dict[int, str] = {}  # line -> gdb bkpt number
         self._cmd_q: queue.Queue = queue.Queue()
         self._alive = True

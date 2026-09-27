@@ -63,6 +63,17 @@ html, body {
 }
 .toggle-names input { cursor: pointer; accent-color: var(--accent, #4f8cff); }
 
+/* 顶栏“已保存”提示（Ctrl+S 反馈；编辑实时同步，仅作提示） */
+.save-hint {
+  font-size: 12px;
+  color: #7ee2a8;
+  background: rgba(34, 160, 107, .14);
+  border: 1px solid rgba(34, 160, 107, .35);
+  border-radius: 10px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+
 /* ---- 登录页 ---- */
 .auth-wrap {
   height: 100vh;
@@ -205,6 +216,17 @@ html, body {
   outline: none;
 }
 .editor-container { flex: 1; min-width: 0; }
+
+/* ---- 折叠控件：隐藏 glyph margin 里重复渲染的折叠图标 ----
+   Monaco 标准折叠装饰渲染到行号右侧（.cldr，firstLineDecorationClassName）；
+   只匹配 glyph margin 专属容器类 .cgmr（GlyphMarginWidgets 渲染），
+   避免误伤 .cldr 上的正确折叠箭头。 */
+.cgmr.codicon-folding-expanded,
+.cgmr.codicon-folding-collapsed,
+.cgmr.codicon-folding-manual-expanded,
+.cgmr.codicon-folding-manual-collapsed {
+  display: none !important;
+}
 
 /* ---- 等待遮罩 ---- */
 .overlay {

@@ -3,6 +3,7 @@
 # 依赖：fastapi、config、db、routers
 # 可调参数：静态目录见 config（VENDOR_DIR/FRONTEND_DIR）
 from contextlib import asynccontextmanager
+import mimetypes
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -34,6 +35,8 @@ def create_app() -> FastAPI:
     app.include_router(ws.router, tags=["ws"])
     app.include_router(exec_router.router, tags=["exec"])
     # 静态资源挂载须在 API 路由之后，避免吞掉 /api、/ws 路径
+    # 注册 .ttf 字体 MIME（否则 uvicorn 以 application/octet-stream 提供，Chrome 拒绝 @font-face）
+    mimetypes.add_type("font/ttf", ".ttf")
     app.mount("/vendor", StaticFiles(directory=_settings.VENDOR_DIR), name="vendor")
     app.mount("/", StaticFiles(directory=_settings.FRONTEND_DIR, html=True), name="frontend")
     return app

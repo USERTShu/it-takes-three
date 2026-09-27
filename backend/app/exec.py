@@ -61,6 +61,33 @@ def cleanup_workdir(d: str) -> None:
         pass
 
 
+def sync_room_files(room: ContestRoom, workdir: str) -> None:
+    """功能：把房间 YDoc 的全部文件写入工作目录（含数据文件，
+    支持 freopen("in", "r", stdin) 读取项目内文件）。
+    API: sync_room_files(ContestRoom, str) → None
+    依赖：y_py、sanitize_path。可调参数：无。"""
+    files_map = room.get_map("files")
+    for path in (files_map.keys() or []):
+        p = sanitize_path(str(path))
+        if p is None:
+            continue
+        dst = os.path.join(workdir, p)
+        os.makedirs(os.path.dirname(dst) or workdir, exist_ok=True)
+        with open(dst, "w", encoding="utf-8") as f:
+            f.write(str(files_map.get(p)))
+
+
+def _clean_env() -> dict:
+    """功能：返回去除沙箱注入的子进程环境（移除 LD_PRELOAD 的 sbox.so）。
+    环境约束：本机沙箱把 sbox.so 注入所有进程（LD_PRELOAD），它拦截 exec/errno 等
+    系统调用，会破坏 g++ 子进程（确定性 SIGSEGV）并干扰运行程序 stdin 交互。
+    API: _clean_env() → dict
+    依赖：os。可调参数：无。"""
+    env = dict(os.environ)
+    env.pop("LD_PRELOAD", None)
+    return env
+
+
 async def compile_program(room: ContestRoom, path: str, debug: bool,
                           workdir: str) -> tuple[bool, str | None, str | None]:
     """功能：从 YDoc 取源码并 g++17 编译。
@@ -77,12 +104,16 @@ async def compile_program(room: ContestRoom, path: str, debug: bool,
     bin_path = os.path.join(workdir, "a.out")
     flags = FLAGS_DEBUG if debug else FLAGS_RUN
     cmd = ["g++", *flags, "-o", bin_path, src]
-    # 受限环境（内存压力/沙箱）下 g++ 偶发被信号杀死（rc<0，stderr 为空）：
-    # 这类“进程崩溃”重试一次即可成功，非代码问题，正常机器不会触发。
-    for attempt in range(2):
+    # 受限环境（沙箱 sbox.so 经 LD_PRELOAD 注入）下，由 uvicorn 直接派生 g++ 会
+    # 确定性 SIGSEGV；因此改经 python3 的 subprocess 中间层派生并去除 LD_PRELOAD。
+    # 崩溃型失败（rc<0、stderr 空）再重试 1-2 次，正常机器不会触发。
+    for attempt in range(3):
         try:
+            _env = _clean_env()
+            _py = "import subprocess,sys;subprocess.run(sys.argv[1:])"
+            _spawn = ["/usr/bin/python3.11", "-u", "-c", _py, *cmd]
             proc = await asyncio.create_subprocess_exec(
-                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+                *_spawn, env=_env, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
             try:
                 _, stderr = await asyncio.wait_for(
                     proc.communicate(), timeout=_settings.RUN_COMPILE_TIMEOUT_SECONDS)
@@ -94,8 +125,8 @@ async def compile_program(room: ContestRoom, path: str, debug: bool,
             return False, "g++ 未安装或不在 PATH 中", None
         if proc.returncode == 0:
             return True, None, bin_path
-        if proc.returncode < 0 and attempt == 0:
-            await asyncio.sleep(0.5)
+        if proc.returncode < 0 and attempt < 2:
+            await asyncio.sleep(1.0)
             continue
         return False, (stderr or b"").decode("utf-8", "replace"), None
     return False, "编译失败", None  # 不可达（保险）
@@ -126,6 +157,7 @@ class RunProcess:
         依赖：asyncio。可调参数：无。"""
         self.proc = await asyncio.create_subprocess_exec(
             self.bin_path,
+            env=_clean_env(),
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,

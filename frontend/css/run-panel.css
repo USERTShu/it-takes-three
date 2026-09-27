@@ -10,19 +10,43 @@
 .editor-container {
   flex: 1;
   min-width: 0;
+  /* 关键：min-height:0 允许容器在底部面板展开时收缩（flex 列项默认
+     min-height:auto，Monaco 内容高度会阻止收缩，把面板挤出可见区） */
+  min-height: 0;
   position: relative;
 }
 
-/* ---- 浮动操作条（编辑器右上角，不推挤正文；可按住空白处拖动） ---- */
+/* ---- 顶栏操作区（运行/调试/停止，位于整个界面右上角） ---- */
 .run-bar {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.run-btn {
+  border: none;
+  background: #3a3a52;
+  color: var(--text);
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.run-btn:hover { filter: brightness(1.15); }
+.run-btn.danger { color: #ff7b72; }
+.run-btn.danger:hover { background: rgba(229, 72, 77, .18); }
+.run-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ---- 调试工具栏（仅调试时显示；悬浮于编辑器区域右上角，可拖动） ---- */
+.debug-toolbar {
   position: absolute;
   top: 8px;
   right: 8px;
   left: auto;
-  transform: none;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
   background: rgba(23, 23, 33, .92);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -32,30 +56,7 @@
   user-select: none;
   cursor: grab;
 }
-.run-bar.dragging { cursor: grabbing; }
-.run-btn {
-  border: none;
-  background: transparent;
-  color: var(--text);
-  font-size: 13px;
-  padding: 4px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.run-btn:hover { background: #3a3a52; }
-.run-btn.danger { color: #ff7b72; }
-.run-btn.danger:hover { background: rgba(229, 72, 77, .18); }
-.run-btn:disabled { opacity: .4; cursor: not-allowed; }
-
-.debug-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  border-left: 1px solid var(--border);
-  padding-left: 6px;
-  margin-left: 2px;
-}
+.debug-toolbar.dragging { cursor: grabbing; }
 .debug-toolbar button {
   border: none;
   background: transparent;

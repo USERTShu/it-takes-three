@@ -36,6 +36,11 @@ export async function createEditor(container) {
     scrollBeyondLastLine: false,
     scrollbar: { verticalScrollbarSize: 10 },
     glyphMargin: true,
+    // 折叠用缩进策略：主线程计算，不依赖 editor worker
+    // （AMD 部署下 editor.worker.js 缺失，auto 策略的折叠范围计算会失败）
+    folding: true,
+    foldingStrategy: 'indentation',
+    showFoldingControls: 'mouseover',
   })
   return editor
 }

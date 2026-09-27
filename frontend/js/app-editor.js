@@ -63,6 +63,7 @@ let breakpointMgr = null // 断点/当前行装饰
 let runSession = null // 运行会话客户端
 let debugSession = null // 调试会话客户端
 let activeKind = null // 'run' | 'debug' | null
+let saveHintTimer = null // Ctrl+S “已保存”提示计时器
 
 // ---- 比赛加载 ----
 async function loadContest() {
@@ -303,21 +304,28 @@ function initRunDebug() {
     })
   })
 
-  // VS Code 快捷键：F5 调试 / Ctrl+F5 运行 / F10 单步跳过 / F11 单步进入 / Shift+F5 停止 / Ctrl+J 控制台
+  // VS Code 快捷键：F5 调试 / Ctrl+F5 运行 / F10 单步跳过 / F11 单步进入 / Shift+F5 停止 /
+  // Ctrl+` 切换终端（主用；VS Code 风格） / Ctrl+J 切换终端（兼容；部分浏览器会把它保留为下载页快捷键）/
+  // Ctrl+S 拦截浏览器“保存网页”对话框（编辑为实时同步，仅提示，无需手动保存）。
+  // 用捕获阶段（capture）监听：先于 Monaco/编辑器内部按键处理执行，避免快捷键被吞掉。
   window.addEventListener('keydown', (e) => {
+    const key = (e.key || '').toLowerCase()
     if (e.key === 'F5') {
       if (e.shiftKey) { e.preventDefault(); stopSession(); return }
       if (e.ctrlKey || e.metaKey) { e.preventDefault(); btnRun.click(); return }
       e.preventDefault(); btnDebug.click()
-    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'j') {
+    } else if ((e.ctrlKey || e.metaKey) && (key === '`' || key === 'j')) {
       e.preventDefault()
       runPanel.toggle()
+    } else if ((e.ctrlKey || e.metaKey) && key === 's') {
+      e.preventDefault()
+      showSaveHint()
     } else if (e.key === 'F10' && activeKind === 'debug' && debugSession) {
       e.preventDefault(); debugSession.cmd('next')
     } else if (e.key === 'F11' && activeKind === 'debug' && debugSession) {
       e.preventDefault(); debugSession.cmd('step')
     }
-  })
+  }, true)
 
   // 输入行回调：按当前会话类型转发 stdin
   runPanel.onInput = (data) => {
@@ -329,13 +337,13 @@ function initRunDebug() {
   updateRunButtons()
 }
 
-// ---- 浮动工具条拖动（VS Code 调试工具条风格：按住空白处拖动，位置持久化） ----
+// ---- 调试工具栏拖动（VS Code 调试工具条风格：按住空白处拖动，位置持久化） ----
 function initRunBarDrag() {
-  const bar = document.getElementById('run-bar')
+  const bar = document.getElementById('debug-toolbar')
   const container = document.getElementById('editor-container')
   // 恢复上次拖动位置
   try {
-    const saved = JSON.parse(localStorage.getItem('vp_runbar_pos') || 'null')
+    const saved = JSON.parse(localStorage.getItem('vp_dbgbar_pos') || 'null')
     if (saved && typeof saved.left === 'string') {
       bar.style.left = saved.left
       bar.style.top = saved.top
@@ -380,10 +388,20 @@ function initRunBarDrag() {
     bar.classList.remove('dragging')
     if (moved) {
       try {
-        localStorage.setItem('vp_runbar_pos', JSON.stringify({ left: bar.style.left, top: bar.style.top }))
+        localStorage.setItem('vp_dbgbar_pos', JSON.stringify({ left: bar.style.left, top: bar.style.top }))
       } catch (e) { /* 忽略 */ }
     }
   })
+}
+
+// ---- 顶部栏“已保存”提示（Ctrl+S 反馈；编辑实时同步，无需手动保存） ----
+function showSaveHint() {
+  const el = document.getElementById('save-hint')
+  if (!el) return
+  el.textContent = '已保存（实时同步）'
+  el.classList.remove('hidden')
+  clearTimeout(saveHintTimer)
+  saveHintTimer = setTimeout(() => el.classList.add('hidden'), 1600)
 }
 
 function updateRunButtons() {
