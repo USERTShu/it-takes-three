@@ -74,6 +74,58 @@ html, body {
   white-space: nowrap;
 }
 
+/* 顶栏图标按钮（设置 ⚙） */
+.icon-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+}
+.icon-btn:hover, .icon-btn.active { background: #32324a; color: var(--text); }
+
+/* ---- 设置弹层 ---- */
+.settings-pop {
+  position: fixed;
+  right: 16px;
+  top: 52px;
+  z-index: 300;
+  width: 240px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .45);
+}
+.settings-pop .settings-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.settings-row label { font-size: 13px; color: var(--text); }
+.settings-row select {
+  background: #1b1b2a;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 4px 8px;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+.settings-row select:focus { border-color: var(--accent); }
+
 /* ---- 登录页 ---- */
 .auth-wrap {
   height: 100vh;

@@ -9,6 +9,8 @@ import { setupRemoteCursors } from './cursors.js'
 import { RunSession } from './runner.js'
 import { DebugSession, BreakpointManager } from './debugger.js'
 import { RunPanel } from './run-panel.js'
+import { loadSettings, initSettingsPanel } from './settings.js'
+import { defineSemanticThemes, registerCppSemanticProvider, enableSemantic } from './cpp-semantic.js'
 // y-monaco 改为动态 import：其 monaco-shim 在模块顶层访问 globalThis.monaco，
 // 而 Monaco 经 AMD 异步加载，静态 import 会在此刻拿到 undefined。
 
@@ -105,6 +107,14 @@ async function initEditor() {
     return
   }
   editor = await createEditor(document.getElementById('editor-container'))
+  // 语义令牌高亮（VSCode 风格：函数/变量/类型/命名空间/宏/成员着色）
+  const monaco = window.monaco
+  await defineSemanticThemes(monaco)
+  registerCppSemanticProvider(monaco)
+  enableSemantic(editor)
+  // 编辑器设置（字号/行高/主题/制表符，localStorage 持久化）
+  applySettings(editor, loadSettings())
+  initSettingsPanel(editor, applySettings)
   runPanel = new RunPanel()
   breakpointMgr = new BreakpointManager(editor, (line, enabled) => {
     // 调试会话进行中即时下发断点增删
@@ -169,6 +179,18 @@ async function initEditor() {
     if (debugSession) debugSession.close()
     if (y) y.provider.destroy()
   })
+}
+
+// ---- 编辑器设置应用 ----
+function applySettings(ed, s) {
+  ed.updateOptions({
+    fontSize: s.fontSize,
+    lineHeight: s.lineHeight,
+    tabSize: s.tabSize,
+    theme: s.theme === 'light' ? 'vp-light' : 'vp-dark',
+  })
+  // 字号/行高变化后重算远端光标标签坐标（cursors.js 监听 window resize）
+  window.dispatchEvent(new Event('resize'))
 }
 
 // ---- 成员面板 / 倒计时 ----
