@@ -6,6 +6,9 @@
 import { createEditor } from './editor-setup.js'
 import { setupYjs, createFile, deleteFile } from './yjs-setup.js'
 import { setupRemoteCursors } from './cursors.js'
+import { RunSession } from './runner.js'
+import { DebugSession, BreakpointManager } from './debugger.js'
+import { RunPanel } from './run-panel.js'
 // y-monaco 改为动态 import：其 monaco-shim 在模块顶层访问 globalThis.monaco，
 // 而 Monaco 经 AMD 异步加载，静态 import 会在此刻拿到 undefined。
 
@@ -54,6 +57,13 @@ let currentCursors = null // 当前文件的光标渲染器（供名称开关实
 let namesVisible = true // 远端用户名标签显示开关（localStorage 持久化）
 const bindings = new Map() // path → {model, binding, cursors}
 
+// ---- 运行/调试状态 ----
+let runPanel = null // 底部面板
+let breakpointMgr = null // 断点/当前行装饰
+let runSession = null // 运行会话客户端
+let debugSession = null // 调试会话客户端
+let activeKind = null // 'run' | 'debug' | null
+
 // ---- 比赛加载 ----
 async function loadContest() {
   try {
@@ -94,6 +104,16 @@ async function initEditor() {
     return
   }
   editor = await createEditor(document.getElementById('editor-container'))
+  runPanel = new RunPanel()
+  breakpointMgr = new BreakpointManager(editor, (line, enabled) => {
+    // 调试会话进行中即时下发断点增删
+    if (debugSession) {
+      if (enabled) debugSession.break(line)
+      else debugSession.breakDel(line)
+    }
+  })
+  window.__dbg = breakpointMgr // 调试
+  initRunDebug()
   const mod = await import('y-monaco')
   MonacoBinding = mod.MonacoBinding
   y = setupYjs(slug, myToken, {
@@ -144,6 +164,8 @@ async function initEditor() {
   })
 
   window.addEventListener('beforeunload', () => {
+    if (runSession) runSession.close()
+    if (debugSession) debugSession.close()
     if (y) y.provider.destroy()
   })
 }
@@ -208,7 +230,9 @@ function renderFileTree() {
 
 function maybeOpenFirst() {
   if (current || !y || y.filesMap.size === 0) return
-  const first = Array.from(y.filesMap.keys()).sort()[0]
+  const paths = Array.from(y.filesMap.keys()).sort()
+  // 优先打开 main.*（避免默认打开字母序第一个文件如 bad.cpp，点运行直接编译失败）
+  const first = paths.find((p) => /(^|\/)(main|a)\.(cpp|c|cc|cxx)$/i.test(p)) || paths[0]
   if (first) openFile(first)
 }
 
@@ -227,6 +251,7 @@ function openFile(path) {
   bindings.set(path, { model, binding, cursors })
   current = path
   renderFileTree()
+  updateRunButtons()
 }
 
 function closeFile() {
@@ -240,6 +265,233 @@ function closeFile() {
     try { entry.model.dispose() } catch (e) { /* 忽略 */ }
   }
   current = null
+  // 关闭文件：停止正在进行的运行/调试，清空断点与当前行高亮
+  if (breakpointMgr) {
+    breakpointMgr.clear()
+    breakpointMgr.clearCurrentLine()
+  }
+  stopSession()
+  updateRunButtons()
+}
+
+// ---- 运行 / 调试（VS Code 风格） ----
+// 协议表见 .for_human_dev.md「5. 运行/调试协议」。
+
+function initRunDebug() {
+  const btnRun = document.getElementById('btn-run')
+  const btnDebug = document.getElementById('btn-debug')
+  const btnStop = document.getElementById('btn-stop')
+  const dbgBar = document.getElementById('debug-toolbar')
+
+  btnRun.addEventListener('click', () => {
+    if (!current) return
+    if (activeKind) stopSession()
+    startRun()
+  })
+  btnDebug.addEventListener('click', () => {
+    if (!current) return
+    if (activeKind) stopSession()
+    startDebug()
+  })
+  btnStop.addEventListener('click', stopSession)
+
+  dbgBar.querySelectorAll('button').forEach((b) => {
+    b.addEventListener('click', () => {
+      const cmd = b.dataset.dbg
+      if (cmd === 'stop' || !debugSession) { stopSession(); return }
+      debugSession.cmd(cmd)
+    })
+  })
+
+  // VS Code 快捷键：F5 调试 / Ctrl+F5 运行 / F10 单步跳过 / F11 单步进入 / Shift+F5 停止 / Ctrl+J 控制台
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'F5') {
+      if (e.shiftKey) { e.preventDefault(); stopSession(); return }
+      if (e.ctrlKey || e.metaKey) { e.preventDefault(); btnRun.click(); return }
+      e.preventDefault(); btnDebug.click()
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'j') {
+      e.preventDefault()
+      runPanel.toggle()
+    } else if (e.key === 'F10' && activeKind === 'debug' && debugSession) {
+      e.preventDefault(); debugSession.cmd('next')
+    } else if (e.key === 'F11' && activeKind === 'debug' && debugSession) {
+      e.preventDefault(); debugSession.cmd('step')
+    }
+  })
+
+  // 输入行回调：按当前会话类型转发 stdin
+  runPanel.onInput = (data) => {
+    if (activeKind === 'debug' && debugSession) debugSession.sendStdin(data)
+    else if (activeKind === 'run' && runSession) runSession.sendStdin(data)
+  }
+
+  initRunBarDrag()
+  updateRunButtons()
+}
+
+// ---- 浮动工具条拖动（VS Code 调试工具条风格：按住空白处拖动，位置持久化） ----
+function initRunBarDrag() {
+  const bar = document.getElementById('run-bar')
+  const container = document.getElementById('editor-container')
+  // 恢复上次拖动位置
+  try {
+    const saved = JSON.parse(localStorage.getItem('vp_runbar_pos') || 'null')
+    if (saved && typeof saved.left === 'string') {
+      bar.style.left = saved.left
+      bar.style.top = saved.top
+      bar.style.right = 'auto'
+      bar.style.transform = 'none'
+    }
+  } catch (e) { /* 忽略 */ }
+
+  let dragging = false
+  let moved = false
+  let startX = 0, startY = 0, origLeft = 0, origTop = 0
+
+  bar.addEventListener('mousedown', (e) => {
+    if (e.button !== 0 || e.target.closest('button')) return // 按钮点击不拖动
+    dragging = true
+    moved = false
+    startX = e.clientX
+    startY = e.clientY
+    const cRect = container.getBoundingClientRect()
+    const bRect = bar.getBoundingClientRect()
+    origLeft = bRect.left - cRect.left
+    origTop = bRect.top - cRect.top
+    e.preventDefault()
+  })
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return
+    const dx = e.clientX - startX
+    const dy = e.clientY - startY
+    if (Math.abs(dx) + Math.abs(dy) > 4) moved = true
+    const cRect = container.getBoundingClientRect()
+    const maxX = Math.max(0, cRect.width - bar.offsetWidth)
+    const maxY = Math.max(0, cRect.height - bar.offsetHeight)
+    bar.style.left = Math.min(Math.max(0, origLeft + dx), maxX) + 'px'
+    bar.style.top = Math.min(Math.max(0, origTop + dy), maxY) + 'px'
+    bar.style.right = 'auto'
+    bar.style.transform = 'none'
+    bar.classList.add('dragging')
+  })
+  window.addEventListener('mouseup', () => {
+    if (!dragging) return
+    dragging = false
+    bar.classList.remove('dragging')
+    if (moved) {
+      try {
+        localStorage.setItem('vp_runbar_pos', JSON.stringify({ left: bar.style.left, top: bar.style.top }))
+      } catch (e) { /* 忽略 */ }
+    }
+  })
+}
+
+function updateRunButtons() {
+  const hasFile = !!current
+  document.getElementById('btn-run').disabled = !hasFile
+  document.getElementById('btn-debug').disabled = !hasFile
+  document.getElementById('btn-stop').classList.toggle('hidden', !activeKind)
+  document.getElementById('debug-toolbar').classList.toggle('hidden', activeKind !== 'debug')
+}
+
+function startRun() {
+  const path = current
+  activeKind = 'run'
+  updateRunButtons()
+  runPanel.show('terminal')
+  runPanel.clearTerm()
+  runPanel.setInputEnabled(true)
+  runSession = new RunSession(slug, myToken, {
+    onCompile: (ok, error) => {
+      if (ok) runPanel.termPrint('[编译成功，开始运行]\n', 'info')
+      else runPanel.termPrint('[编译失败]\n' + (error || ''), 'err')
+    },
+    onStdout: (data) => runPanel.termPrint(data, ''),
+    onStderr: (data) => runPanel.termPrint(data, 'err'),
+    onExit: (info) => {
+      runPanel.termPrint(
+        info.killed
+          ? `[已超出时间限制，程序被终止（耗时 ${info.time_ms} ms）]\n`
+          : `[进程已退出，退出码 ${info.code}，耗时 ${info.time_ms} ms]\n`,
+        'muted')
+      endSession()
+    },
+    onError: () => { runPanel.termPrint('[运行连接出错]\n', 'err'); endSession() },
+    onClose: () => endSession(),
+  })
+  runSession.connect()
+  runSession.start(path)
+}
+
+function startDebug() {
+  const path = current
+  activeKind = 'debug'
+  updateRunButtons()
+  runPanel.show('console')
+  runPanel.clearConsole()
+  runPanel.clearVars()
+  runPanel.setInputEnabled(true, '调试时在此输入程序的标准输入')
+  if (breakpointMgr) breakpointMgr.clearCurrentLine()
+  debugSession = new DebugSession(slug, myToken, {
+    onCompile: (ok, error) => {
+      if (ok) {
+        runPanel.consolePrint('[编译成功，正在启动调试…]\n', 'info')
+        // 先下发全部断点，再启动程序（避免断点未设置程序就跑完）
+        if (breakpointMgr) {
+          for (const line of breakpointMgr.bps) debugSession.break(line)
+        }
+        debugSession.cmd('restart')
+      } else {
+        runPanel.consolePrint('[编译失败]\n' + (error || ''), 'err')
+      }
+    },
+    onStdout: (data) => runPanel.consolePrint(data, ''),
+    onStderr: (data) => runPanel.consolePrint(data, 'err'),
+    onState: (st) => {
+      const loc = (st.file ? st.file + ':' : '') + st.line
+      if (st.reason === 'breakpoint') runPanel.consolePrint(`[命中断点 ${loc}]\n`, 'info')
+      else if (st.reason === 'step') runPanel.consolePrint(`[单步停在 ${loc}]\n`, 'info')
+      else if (st.reason === 'signal') runPanel.consolePrint(`[程序收到信号 ${st.signal || ''}，已暂停]\n`, 'err')
+      else if (st.reason === 'exit') runPanel.consolePrint('[程序运行结束]\n', 'muted')
+      if (breakpointMgr) breakpointMgr.setCurrentLine(st.line)
+    },
+    onExit: (info) => {
+      runPanel.consolePrint(`[调试会话结束，退出码 ${info.code}]\n`, 'muted')
+      endSession()
+    },
+    onStack: (list) => runPanel.setStack(list),
+    onVars: (list) => runPanel.setVars(list),
+    onClosed: () => endSession(),
+    onError: () => { runPanel.consolePrint('[调试连接出错]\n', 'err'); endSession() },
+    onClose: () => endSession(),
+  })
+  debugSession.connect()
+  debugSession.start(path)
+}
+
+function stopSession() {
+  if (runSession) {
+    runSession.kill()
+    runSession.close()
+    runSession = null
+  }
+  if (debugSession) {
+    debugSession.cmd('stop')
+    debugSession.close()
+    debugSession = null
+  }
+  if (activeKind) {
+    if (activeKind === 'debug') runPanel.consolePrint('[调试已停止]\n', 'muted')
+    else runPanel.termPrint('[已停止]\n', 'muted')
+  }
+  endSession()
+}
+
+function endSession() {
+  activeKind = null
+  if (breakpointMgr) breakpointMgr.clearCurrentLine()
+  if (runPanel) runPanel.setInputEnabled(false)
+  updateRunButtons()
 }
 
 // ---- 启动 ----

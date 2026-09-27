@@ -1,0 +1,223 @@
+/* run-panel.css — 运行/调试 UI（VS Code 风格浮动操作条 + 底部面板） */
+
+/* ---- 主区域列布局：编辑器在上、底部面板在下 ---- */
+.editor-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.editor-container {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+/* ---- 浮动操作条（编辑器右上角，不推挤正文；可按住空白处拖动） ---- */
+.run-bar {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  left: auto;
+  transform: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(23, 23, 33, .92);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  z-index: 200;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .45);
+  user-select: none;
+  cursor: grab;
+}
+.run-bar.dragging { cursor: grabbing; }
+.run-btn {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.run-btn:hover { background: #3a3a52; }
+.run-btn.danger { color: #ff7b72; }
+.run-btn.danger:hover { background: rgba(229, 72, 77, .18); }
+.run-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+.debug-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-left: 1px solid var(--border);
+  padding-left: 6px;
+  margin-left: 2px;
+}
+.debug-toolbar button {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  width: 28px;
+  height: 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1;
+}
+.debug-toolbar button:hover { background: #3a3a52; }
+
+/* ---- 底部面板 ---- */
+.run-panel {
+  flex: none;
+  height: 200px;
+  min-height: 90px;
+  border-top: 1px solid var(--border);
+  background: var(--card);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.run-panel-header {
+  flex: none;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  cursor: row-resize;
+  background: #212133;
+  padding-right: 6px;
+}
+.run-tabs { display: flex; align-items: stretch; height: 100%; padding: 0 8px; }
+.run-tab {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 0 14px;
+  cursor: pointer;
+  border-top: 2px solid transparent;
+  white-space: nowrap;
+}
+.run-tab:hover { color: var(--text); }
+.run-tab.active {
+  color: var(--text);
+  border-top-color: var(--accent);
+  background: #26263a;
+}
+.panel-close {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.panel-close:hover { color: var(--text); background: #3a3a52; }
+
+.run-panel-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.run-tabpane { flex: 1; min-height: 0; display: none; flex-direction: column; }
+.run-tabpane.active { display: flex; }
+
+/* ---- 终端 / 调试控制台 ---- */
+.term-output {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 10px;
+  font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: #14141f;
+}
+.term-output .t-line { min-height: 1.5em; }
+.term-output .t-err { color: #ff9b9b; }
+.term-output .t-info { color: #8ab4ff; }
+.term-output .t-muted { color: var(--muted); font-style: italic; }
+
+.term-input-row {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-top: 1px solid var(--border);
+  background: #1a1a2a;
+}
+.term-prompt { color: var(--accent); font-family: monospace; font-size: 13px; }
+#term-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  font-size: 12.5px;
+}
+#term-input:disabled { color: var(--muted); }
+
+/* ---- 变量表 / 调用堆栈 ---- */
+.kv-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.kv-table th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--card);
+}
+.kv-table td {
+  padding: 3px 10px;
+  font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  border-bottom: 1px solid #2a2a3e;
+}
+.kv-table td.v-name { color: #d2a8ff; }
+.kv-table td.v-type { color: var(--muted); font-size: 11.5px; }
+
+.stack-list { padding: 6px 4px; font-size: 12.5px; overflow-y: auto; }
+.stack-frame {
+  display: flex;
+  gap: 10px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+}
+.stack-frame:hover { background: #32324a; }
+.stack-frame .sf-fn { color: #8ab4ff; }
+.stack-frame .sf-loc { color: var(--muted); font-size: 11.5px; margin-left: auto; }
+.tab-empty { color: var(--muted); font-size: 12.5px; padding: 14px; }
+
+/* ---- 调试装饰（glyph margin） ---- */
+.vp-breakpoint-glyph { pointer-events: none; }
+.vp-breakpoint-glyph::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #f14c4c;
+  border: 1px solid rgba(255, 255, 255, .35);
+}
+.vp-current-line { background: rgba(255, 221, 87, .12); }
+.vp-current-line-glyph { pointer-events: none; }
+.vp-current-line-glyph::before {
+  content: "➤";
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #ffd75b;
+  font-size: 12px;
+}

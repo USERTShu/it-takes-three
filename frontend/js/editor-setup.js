@@ -35,6 +35,7 @@ export async function createEditor(container) {
     lineHeight: 20,
     scrollBeyondLastLine: false,
     scrollbar: { verticalScrollbarSize: 10 },
+    glyphMargin: true,
   })
   return editor
 }

@@ -7,6 +7,10 @@
 #   PALETTE                比赛开始时为成员分配的颜色池（默认 8 色，取前 N 个）
 #   DEFAULT_DURATION_MINUTES 创建比赛默认时长（默认 300 = ICPC 5 小时）
 #   WS_MAX_MESSAGE_BYTES   WebSocket 单条消息大小上限（默认 16MB，防滥用）
+#   RUN_COMPILE_TIMEOUT_SECONDS 编译单次超时秒数（默认 20）
+#   RUN_TIME_LIMIT_SECONDS  程序运行时限秒数（默认 10，超时 kill 并标记 TLE）
+#   RUN_DIR                 运行/调试工作目录（默认 data/run，按 slug/session 隔离）
+#   GDB_BIN                 gdb 可执行路径（默认 gdb）
 #   VENDOR_DIR / FRONTEND_DIR 静态资源目录（默认 vendor/、frontend/，相对项目根目录）
 import os
 from dataclasses import dataclass, field
@@ -28,6 +32,10 @@ class Settings:
     ))
     DEFAULT_DURATION_MINUTES: int = field(default_factory=lambda: int(_env("DEFAULT_DURATION_MINUTES", "300")))
     WS_MAX_MESSAGE_BYTES: int = field(default_factory=lambda: int(_env("WS_MAX_MESSAGE_BYTES", str(16 * 1024 * 1024))))
+    RUN_COMPILE_TIMEOUT_SECONDS: int = field(default_factory=lambda: int(_env("RUN_COMPILE_TIMEOUT_SECONDS", "20")))
+    RUN_TIME_LIMIT_SECONDS: int = field(default_factory=lambda: int(_env("RUN_TIME_LIMIT_SECONDS", "10")))
+    RUN_DIR: str = field(default_factory=lambda: _env("RUN_DIR", os.path.join(PROJECT_ROOT, "data", "run")))
+    GDB_BIN: str = field(default_factory=lambda: _env("GDB_BIN", "gdb"))
     VENDOR_DIR: str = field(default_factory=lambda: _env("VENDOR_DIR", os.path.join(PROJECT_ROOT, "vendor")))
     FRONTEND_DIR: str = field(default_factory=lambda: _env("FRONTEND_DIR", os.path.join(PROJECT_ROOT, "frontend")))
 

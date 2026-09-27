@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
 from .db import init_db
-from .routers import auth, contests, files, ws
+from .routers import auth, contests, exec as exec_router, files, ws
 
 _settings = get_settings()
 
@@ -32,6 +32,7 @@ def create_app() -> FastAPI:
     app.include_router(contests.router, prefix="/api/contests", tags=["contests"])
     app.include_router(files.router, prefix="/api/contests", tags=["files"])
     app.include_router(ws.router, tags=["ws"])
+    app.include_router(exec_router.router, tags=["exec"])
     # 静态资源挂载须在 API 路由之后，避免吞掉 /api、/ws 路径
     app.mount("/vendor", StaticFiles(directory=_settings.VENDOR_DIR), name="vendor")
     app.mount("/", StaticFiles(directory=_settings.FRONTEND_DIR, html=True), name="frontend")
