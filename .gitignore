@@ -1,0 +1,10 @@
+# local dev
+.agent_dev.md
+.for_human_dev.md
+
+# cache
+__pycache__/
+*.pyc
+
+# env
+backend/venv/

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>比赛大厅 · 远程 VP 协作编辑器</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <strong>远程 VP 协作编辑器</strong>
+      <span id="user-info"></span>
+      <button id="btn-logout" class="btn ghost small">退出</button>
+    </div>
+  </header>
+
+  <main class="lobby">
+    <section class="card">
+      <h2>创建比赛</h2>
+      <form id="create-form" class="form grid2">
+        <div>
+          <label for="contest-name">比赛名称</label>
+          <input id="contest-name" type="text" placeholder="例如 ICPC 2026 练习" required>
+        </div>
+        <div>
+          <label for="contest-slug">分享链接标识（slug，全局唯一）</label>
+          <input id="contest-slug" type="text" placeholder="例如 icpc-2026" required>
+        </div>
+        <div>
+          <label for="contest-duration">时长（分钟）</label>
+          <input id="contest-duration" type="number" min="1" value="300" required>
+        </div>
+        <div class="form-actions">
+          <button id="btn-create" type="submit" class="btn primary">创建</button>
+        </div>
+      </form>
+      <div id="create-error" class="error hidden"></div>
+    </section>
+
+    <section class="card">
+      <h2>加入比赛</h2>
+      <form id="join-form" class="form inline">
+        <input id="join-slug" type="text" placeholder="输入创建者分享的 slug，如 icpc-2026" required>
+        <button id="btn-join" type="submit" class="btn">加入</button>
+      </form>
+      <div id="join-error" class="error hidden"></div>
+    </section>
+
+    <section class="card">
+      <h2>我的比赛</h2>
+      <div id="contest-list" class="contest-list"></div>
+    </section>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/app-lobby.js"></script>
+</body>
+</html>

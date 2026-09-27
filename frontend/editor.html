@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>编辑器 · 远程 VP 协作编辑器</title>
+  <link rel="stylesheet" href="/vendor/monaco-editor-0.52.2/min/vs/editor/editor.main.css">
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/cursors.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "yjs": "/vendor/yjs-13.6.33/dist/yjs.mjs",
+      "y-websocket": "/vendor/y-websocket-2.0.4/src/y-websocket.js",
+      "y-monaco": "/vendor/y-monaco-0.1.6/src/y-monaco.js",
+      "y-protocols/awareness": "/vendor/y-protocols-1.0.6/awareness.js",
+      "y-protocols/sync": "/vendor/y-protocols-1.0.6/sync.js",
+      "y-protocols/auth": "/vendor/y-protocols-1.0.6/auth.js",
+      "lib0/observable": "/vendor/lib0-0.2.118/observable.js",
+      "lib0/array": "/vendor/lib0-0.2.118/array.js",
+      "lib0/math": "/vendor/lib0-0.2.118/math.js",
+      "lib0/map": "/vendor/lib0-0.2.118/map.js",
+      "lib0/encoding": "/vendor/lib0-0.2.118/encoding.js",
+      "lib0/decoding": "/vendor/lib0-0.2.118/decoding.js",
+      "lib0/random": "/vendor/lib0-0.2.118/random.js",
+      "lib0/promise": "/vendor/lib0-0.2.118/promise.js",
+      "lib0/buffer": "/vendor/lib0-0.2.118/buffer.js",
+      "lib0/error": "/vendor/lib0-0.2.118/error.js",
+      "lib0/binary": "/vendor/lib0-0.2.118/binary.js",
+      "lib0/function": "/vendor/lib0-0.2.118/function.js",
+      "lib0/set": "/vendor/lib0-0.2.118/set.js",
+      "lib0/logging": "/vendor/lib0-0.2.118/logging.js",
+      "lib0/time": "/vendor/lib0-0.2.118/time.js",
+      "lib0/string": "/vendor/lib0-0.2.118/string.js",
+      "lib0/iterator": "/vendor/lib0-0.2.118/iterator.js",
+      "lib0/object": "/vendor/lib0-0.2.118/object.js",
+      "lib0/environment": "/vendor/lib0-0.2.118/environment.js",
+      "lib0/broadcastchannel": "/vendor/lib0-0.2.118/broadcastchannel.js",
+      "lib0/url": "/vendor/lib0-0.2.118/url.js",
+      "lib0/mutex": "/vendor/lib0-0.2.118/mutex.js",
+      "lib0/webcrypto": "/vendor/lib0-0.2.118/webcrypto.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="/lobby.html" class="back-link">← 大厅</a>
+      <strong id="contest-name">比赛</strong>
+      <span id="timer" class="timer">--:--:--</span>
+      <span id="conn-badge" class="conn-badge connecting">连接中…</span>
+      <span id="user-info"></span>
+      <label class="toggle-names" title="显示/隐藏远端用户名标签">
+        <input type="checkbox" id="toggle-names" checked> 名称
+      </label>
+    </div>
+  </header>
+
+  <div class="editor-layout">
+    <aside id="sidebar" class="sidebar">
+      <div id="members-panel">
+        <div class="panel-title">成员</div>
+        <div id="member-list"></div>
+      </div>
+      <div id="files-panel">
+        <div class="panel-title">文件</div>
+        <div id="file-list" class="file-list"></div>
+        <div class="file-actions">
+          <input id="new-file-name" type="text" placeholder="main.cpp" spellcheck="false">
+          <button id="btn-add-file" class="btn small">新建</button>
+        </div>
+      </div>
+    </aside>
+    <main id="editor-container" class="editor-container"></main>
+  </div>
+
+  <div id="waiting-overlay" class="overlay hidden">
+    <div class="overlay-card">
+      <h2>比赛尚未开始</h2>
+      <p>等待创建者在大厅点击「开始比赛」…</p>
+      <button id="btn-start-here" class="btn primary hidden">我是创建者，开始比赛</button>
+      <p id="waiting-error" class="error hidden"></p>
+    </div>
+  </div>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/api.js"></script>
+  <script type="module" src="/js/app-editor.js"></script>
+</body>
+</html>

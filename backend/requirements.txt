@@ -1,0 +1,7 @@
+# 后端依赖（锁版本，venv: backend/venv）
+# 功能：FastAPI Web 框架 / uvicorn ASGI 服务器 / SQLAlchemy ORM / y-py (Yjs CRDT 服务端)
+# 安装：backend/venv/bin/pip install -r requirements.txt
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+sqlalchemy==2.0.54
+y-py==0.6.2

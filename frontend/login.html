@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录 · 远程 VP 协作编辑器</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="card">
+      <h1>远程 VP 协作编辑器</h1>
+      <p class="sub">输入邀请码进入（团队 3 人，每人一个邀请码）</p>
+      <form id="login-form" class="form">
+        <label for="invite-code">邀请码</label>
+        <input id="invite-code" name="invite_code" type="text" placeholder="例如 ACM-XXXX" autocomplete="off" autofocus>
+        <button id="btn-login" type="submit" class="btn primary">登录</button>
+      </form>
+      <div id="login-error" class="error hidden"></div>
+    </div>
+  </div>
+  <script src="/js/auth.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/app-login.js"></script>
+</body>
+</html>

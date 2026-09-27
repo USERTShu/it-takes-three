@@ -1,0 +1,43 @@
+/* cursors.css — 远端光标/选区/名字标签样式
+ * 选区高亮与光标竖条由 y-monaco 的装饰类渲染，
+ * 颜色由 cursors.js 按 clientID 动态注入（.yRemoteSelection-<cid> 等）。
+ * 名字标签是像素级覆盖层（.yRemoteLabelLayer/.yRemoteLabel），
+ * 由 cursors.js 按光标像素坐标定位，不占布局、不推挤正文。
+ */
+
+/* y-monaco 装饰默认不可见，具体颜色按 cid 注入 */
+.yRemoteSelection { position: absolute; }
+.yRemoteSelectionHead {
+  position: absolute;
+  height: 100%;
+  box-sizing: border-box;
+  border-left: 2px solid transparent;
+}
+
+/* 覆盖层：铺满编辑器、指针穿透、随编辑器裁剪 */
+.yRemoteLabelLayer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* 名字标签（11px、贴合光标列、浮在光标行上方，不遮挡代码/光标） */
+.yRemoteLabel {
+  position: absolute;
+  font-size: 11px;
+  line-height: 11px;
+  padding: 1px 7px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, .5);
+  color: #fff;
+  opacity: .9;
+  white-space: nowrap;
+  transform: translateY(-100%);
+  margin-top: -1px;
+}
+
