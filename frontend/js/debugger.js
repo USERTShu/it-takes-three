@@ -19,10 +19,40 @@ export class BreakpointManager {
     this.decoIds = [] // 断点装饰 id（随 model 变化失效，需重渲染）
     this.curDecoId = [] // 当前行装饰 id
     this._sub = editor.onMouseDown((e) => {
-      if (e.target && e.target.type === window.monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN) {
+      if (!e.target) return
+      const t = e.target.type
+      const mt = window.monaco.editor.MouseTargetType
+      if (t === mt.GUTTER_GLYPH_MARGIN) {
         this.toggle(e.target.position.lineNumber)
+      } else if (t === mt.GUTTER_LINE_NUMBERS) {
+        // 断点图标已通过 CSS translateX(15px) 右移到行号列留白区，而 Monaco 的
+        // glyph margin 命中区只有 20px，点图标右半（280+）时 target 是行号列、
+        // 不会触发切换。这里把行号数字左侧的留白区也纳入点击区：
+        // 点击图标附近（红点视觉区域 + 留白）都能切换，点击数字本身不切换。
+        const line = e.target.position.lineNumber
+        const x = e.event?.browserEvent?.clientX ?? -1
+        const el = this._findLineNumberEl(line)
+        if (el) {
+          const tn = [...el.childNodes].find((n) => n.nodeType === 3) || el
+          const rng = document.createRange()
+          rng.selectNodeContents(tn)
+          if (x < rng.getBoundingClientRect().left) this.toggle(line)
+        } else {
+          this.toggle(line)
+        }
       }
     })
+  }
+
+  /** 查找指定行的 .line-numbers 元素（用于判定点击是否在数字左侧） */
+  _findLineNumberEl(line) {
+    const root = this.editor.getDomNode()
+    if (!root) return null
+    const want = String(line)
+    for (const el of root.querySelectorAll('.line-numbers')) {
+      if (el.textContent.trim() === want) return el
+    }
+    return null
   }
 
   has(line) { return this.bps.has(line) }
@@ -102,6 +132,7 @@ export class DebugSession {
    * @param {object} cb 回调：
    *   onOpen / onClose / onError / onCompile(ok,error) / onStdout(data) / onStderr(data)
    *   onState(state) / onExit(info) / onStack(list) / onVars(list) / onBreakpoints(list)
+   *   onWatch(list)（自定义监控表达式求值结果）
    */
   constructor(slug, token, cb) {
     this.slug = slug
@@ -147,6 +178,7 @@ export class DebugSession {
         case 'stack': cb.onStack && cb.onStack(msg.stack || []); break
         case 'vars': cb.onVars && cb.onVars(msg.vars || []); break
         case 'breakpoints': cb.onBreakpoints && cb.onBreakpoints(msg.list || []); break
+        case 'watch': cb.onWatch && cb.onWatch(msg.results || []); break
         case 'closed': cb.onClosed && cb.onClosed(); break
       }
     }
@@ -155,6 +187,8 @@ export class DebugSession {
   start(path) { this.send({ t: 'start', path }) }
   break(line) { this.send({ t: 'break', line }) }
   breakDel(line) { this.send({ t: 'breakDel', line }) }
+  /** 请求对表达式列表求值（gdb 处于 stopped 状态时有效） */
+  watch(exprs) { this.send({ t: 'watch', exprs }) }
   cmd(name, extra) { this.send(Object.assign({ t: name }, extra || {})) }
   sendStdin(data) { this.send({ t: 'stdin', data }) }
 

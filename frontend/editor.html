@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>编辑器 · 远程 VP 协作编辑器</title>
   <link rel="stylesheet" href="/vendor/monaco-editor-0.52.2/min/vs/editor/editor.main.css">
-  <link rel="stylesheet" href="/css/app.css?v=5">
-  <link rel="stylesheet" href="/css/cursors.css?v=5">
-  <link rel="stylesheet" href="/css/run-panel.css?v=5">
+  <link rel="stylesheet" href="/css/app.css?v=13">
+  <link rel="stylesheet" href="/css/cursors.css?v=13">
+  <link rel="stylesheet" href="/css/run-panel.css?v=13">
   <script type="importmap">
   {
     "imports": {
@@ -44,7 +44,7 @@
   }
   </script>
 </head>
-<body>
+<body class="editor-page">
   <header class="topbar">
     <div class="topbar-inner">
       <a href="/lobby.html" class="back-link">← 大厅</a>
@@ -98,6 +98,7 @@
           <button data-tab="console" class="run-tab">调试控制台</button>
           <button data-tab="vars" class="run-tab">变量</button>
           <button data-tab="stack" class="run-tab">调用堆栈</button>
+          <button data-tab="watch" class="run-tab">监视</button>
         </div>
         <div class="run-panel-actions">
           <button id="btn-panel-close" class="panel-close" title="关闭面板">✕</button>
@@ -127,6 +128,17 @@
         </div>
         <div id="tab-stack" class="run-tabpane">
           <div id="stack-list" class="stack-list"></div>
+        </div>
+        <div id="tab-watch" class="run-tabpane">
+          <div class="watch-add-row">
+            <input id="watch-input" type="text" spellcheck="false" placeholder="输入监控表达式，回车添加（如 a[0] / node.val / a + 10）">
+            <button id="watch-add" class="btn small">添加</button>
+          </div>
+          <table class="kv-table">
+            <thead><tr><th>表达式</th><th>值</th></tr></thead>
+            <tbody id="watch-body"></tbody>
+          </table>
+          <div id="watch-empty" class="tab-empty">（未添加监控表达式）</div>
         </div>
       </div>
     </section>
@@ -174,8 +186,8 @@
     </div>
   </div>
 
-  <script src="/js/auth.js?v=5"></script>
-  <script src="/js/api.js?v=5"></script>
-  <script type="module" src="/js/app-editor.js?v=5"></script>
+  <script src="/js/auth.js?v=13"></script>
+  <script src="/js/api.js?v=13"></script>
+  <script type="module" src="/js/app-editor.js?v=13"></script>
 </body>
 </html>

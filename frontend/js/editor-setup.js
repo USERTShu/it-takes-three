@@ -36,6 +36,12 @@ export async function createEditor(container) {
     scrollBeyondLastLine: false,
     scrollbar: { verticalScrollbarSize: 10 },
     glyphMargin: true,
+    // 断点点击区已扩展到行号数字左侧（见 debugger.js），若保留默认的
+    // selectOnLineNumbers:true，点击断点会连带"选中整行"。关闭后行号列
+    // 点击不再改变光标/选区，只用于切换断点（VS Code 行为：选中只发生在内容区）。
+    selectOnLineNumbers: false,
+    // 注意：glyph margin 列宽 = lineHeight × 车道数（=20px，与 VS Code 一致）。
+    // Monaco 编辑器选项中不存在 glyphMarginWidth 用户选项，传了也会被忽略。
     // 折叠用缩进策略：主线程计算，不依赖 editor worker
     // （AMD 部署下 editor.worker.js 缺失，auto 策略的折叠范围计算会失败）
     folding: true,

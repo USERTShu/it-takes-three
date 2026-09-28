@@ -137,6 +137,12 @@ class GdbSession:
             self._emit_stack()
         elif t == "vars":
             self._emit_vars()
+        elif t == "watch":
+            # 自定义监控：对表达式列表逐个求值（程序需处于 stopped 状态）
+            results = []
+            for expr in cmd.get("exprs", []):
+                results.append(self._evaluate(expr))
+            self.emit({"t": "watch", "results": results})
         elif t == "stdin":
             # 程序 stdin：以 gdb 控制台输入转发（inferior 运行中等待输入时 gdb 会透传）
             data = cmd.get("data", "")
@@ -284,3 +290,37 @@ class GdbSession:
         依赖：无。可调参数：无。"""
         self.emit({"t": "breakpoints",
                    "list": [{"line": ln, "enabled": True} for ln in self.breakpoints]})
+
+    def _evaluate(self, expr: str) -> dict:
+        """功能：对单个监控表达式求值，返回 {expr, value, ok}。
+        API: _evaluate(str) → dict
+        依赖：pygdbmi。可调参数：无。
+        注意：gdb MI 的 -data-evaluate-expression 不支持带空格的表达式（会报
+        usage 错误），实测给表达式加双引号包裹即可整体求值；表达式自身含
+        引号时退回 CLI `print` 并解析 console 输出（格式 `$N = value`）。"""
+        expr = (expr or "").strip()
+        try:
+            if '"' not in expr:
+                quoted = f'"{expr}"' if (" " in expr or "\t" in expr) else expr
+                resp = self.controller.write(f"-data-evaluate-expression {quoted}", timeout_sec=3)
+                for m in resp:
+                    if m.get("type") == "result":
+                        payload = m.get("payload") or {}
+                        if m.get("message") == "done":
+                            return {"expr": expr, "value": payload.get("value"), "ok": True}
+                        return {"expr": expr, "value": payload.get("msg"), "ok": False}
+                return {"expr": expr, "value": None, "ok": False}
+            # 表达式含引号：CLI print 方式（MI 无法安全传递）
+            resp = self.controller.write(f"print {expr}", timeout_sec=3)
+            for m in resp:
+                if m.get("type") == "result" and m.get("message") == "error":
+                    return {"expr": expr, "value": (m.get("payload") or {}).get("msg"),
+                            "ok": False}
+                if m.get("type") == "console" and isinstance(m.get("payload"), str):
+                    import re
+                    match = re.search(r"^\$\d+ = (.*)$", m["payload"].strip(), re.S)
+                    if match:
+                        return {"expr": expr, "value": match.group(1).strip(), "ok": True}
+            return {"expr": expr, "value": None, "ok": False}
+        except Exception:
+            return {"expr": expr, "value": None, "ok": False}

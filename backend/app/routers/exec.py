@@ -225,13 +225,19 @@ async def ws_debug(websocket: WebSocket, slug: str, token: str = Query(default="
                         start_task = asyncio.create_task(
                             _start_gdb(room, path, session, emit, evt_q))
                 elif t in ("break", "breakDel", "continue", "next", "step", "finish",
-                           "restart", "stop", "stack", "vars", "stdin"):
+                           "restart", "stop", "stack", "vars", "watch", "stdin"):
                     if session.gdb is not None:
                         cmd = {"t": t}
                         if t in ("break", "breakDel"):
                             line = msg.get("line")
                             if isinstance(line, int) and line > 0:
                                 cmd["line"] = line
+                        elif t == "watch":
+                            exprs = msg.get("exprs")
+                            if isinstance(exprs, list):
+                                cmd["exprs"] = [str(e) for e in exprs][:20]
+                            else:
+                                continue
                         elif t == "stdin":
                             cmd["data"] = msg.get("data", "")
                         session.gdb.send(cmd)

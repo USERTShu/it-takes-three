@@ -171,16 +171,35 @@ function encodeTokens(tokens) {
   return new Uint32Array(data)
 }
 
+/** 语义着色文件大小上限（字符数）：超过则跳过全量重算。
+    原因：analyzeCpp 逐标识符对行前文做 slice/split（单行 O(L²)），
+    超大文件/超长单行会让每次击键的同步重算卡死主线程。 */
+const SEMANTIC_MAX_CHARS = 200000
+
 /** 注册 cpp 文档级语义令牌 provider */
 function registerCppSemanticProvider(monaco) {
+  // 按 model uri 缓存最近一次令牌数据：versionId 未变直接复用，
+  // 避免 Monaco 对同一版本重复请求时反复全量重算
+  const cache = new Map()
   monaco.languages.registerDocumentSemanticTokensProvider('cpp', {
     getLegend() {
       return { tokenTypes: TOKEN_TYPES, tokenModifiers: [] }
     },
     provideDocumentSemanticTokens(model) {
-      const tokens = analyzeCpp(model.getValue())
-      return { data: encodeTokens(tokens) }
+      if (model.getValueLength() > SEMANTIC_MAX_CHARS) {
+        return { data: new Uint32Array(0) } // 降级：超大文件不做语义着色
+      }
+      const key = model.uri.toString()
+      const cached = cache.get(key)
+      if (cached && cached.version === model.getVersionId()) {
+        return { data: cached.data }
+      }
+      const data = encodeTokens(analyzeCpp(model.getValue()))
+      cache.set(key, { version: model.getVersionId(), data })
+      return { data }
     },
+    // Monaco 0.52 在模型切换/释放时调用；令牌为一次性计算，无需清理
+    releaseDocumentSemanticTokens() {},
   })
 }
 

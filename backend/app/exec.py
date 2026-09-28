@@ -110,7 +110,9 @@ async def compile_program(room: ContestRoom, path: str, debug: bool,
     for attempt in range(3):
         try:
             _env = _clean_env()
-            _py = "import subprocess,sys;subprocess.run(sys.argv[1:])"
+            # 中间层必须把 g++ 的退出码透传出来（sys.exit），否则 python 进程恒返回 0，
+            # 编译失败（如漏写 std::）会被误判为成功，随后启动不存在的 a.out 而静默卡死。
+            _py = "import subprocess,sys;sys.exit(subprocess.run(sys.argv[1:]).returncode)"
             _spawn = ["/usr/bin/python3.11", "-u", "-c", _py, *cmd]
             proc = await asyncio.create_subprocess_exec(
                 *_spawn, env=_env, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
@@ -121,10 +123,11 @@ async def compile_program(room: ContestRoom, path: str, debug: bool,
                 proc.kill()
                 await proc.communicate()
                 return False, "编译超时（>%ds）" % _settings.RUN_COMPILE_TIMEOUT_SECONDS, None
+            # 兜底：退出码 0 且目标二进制确实产出才判定成功（防任何中间层误报）
+            if proc.returncode == 0 and os.path.exists(bin_path):
+                return True, None, bin_path
         except FileNotFoundError:
             return False, "g++ 未安装或不在 PATH 中", None
-        if proc.returncode == 0:
-            return True, None, bin_path
         if proc.returncode < 0 and attempt < 2:
             await asyncio.sleep(1.0)
             continue

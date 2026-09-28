@@ -66,6 +66,14 @@ let runSession = null // 运行会话客户端
 let debugSession = null // 调试会话客户端
 let activeKind = null // 'run' | 'debug' | null
 let saveHintTimer = null // Ctrl+S “已保存”提示计时器
+let lastWatchExprs = null // 上次已下发的监控表达式（脏检查：暂停时未变化则不重发，避免单步时反复触发 gdb 求值）
+
+function arraysEqual(a, b) {
+  if (a === b) return true
+  if (!a || !b || a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+  return true
+}
 
 // ---- 比赛加载 ----
 async function loadContest() {
@@ -466,6 +474,7 @@ function startRun() {
 function startDebug() {
   const path = current
   activeKind = 'debug'
+  lastWatchExprs = null // 新会话：清空脏检查状态
   updateRunButtons()
   runPanel.show('console')
   runPanel.clearConsole()
@@ -489,11 +498,25 @@ function startDebug() {
     onStderr: (data) => runPanel.consolePrint(data, 'err'),
     onState: (st) => {
       const loc = (st.file ? st.file + ':' : '') + st.line
+      debugSession.paused = st.reason !== 'exit'
       if (st.reason === 'breakpoint') runPanel.consolePrint(`[命中断点 ${loc}]\n`, 'info')
       else if (st.reason === 'step') runPanel.consolePrint(`[单步停在 ${loc}]\n`, 'info')
       else if (st.reason === 'signal') runPanel.consolePrint(`[程序收到信号 ${st.signal || ''}，已暂停]\n`, 'err')
       else if (st.reason === 'exit') runPanel.consolePrint('[程序运行结束]\n', 'muted')
       if (breakpointMgr) breakpointMgr.setCurrentLine(st.line)
+      // 每次暂停（断点/单步）后刷新自定义监控表达式；
+      // 表达式未变化则跳过（脏检查，避免反复单步时重复触发 gdb 求值）
+      if (st.reason !== 'exit') {
+        const exprs = runPanel.getWatchExprs()
+        if (exprs.length) {
+          if (!arraysEqual(exprs, lastWatchExprs)) {
+            lastWatchExprs = exprs
+            debugSession.watch(exprs)
+          }
+        } else {
+          lastWatchExprs = null
+        }
+      }
     },
     onExit: (info) => {
       runPanel.consolePrint(`[调试会话结束，退出码 ${info.code}]\n`, 'muted')
@@ -501,10 +524,18 @@ function startDebug() {
     },
     onStack: (list) => runPanel.setStack(list),
     onVars: (list) => runPanel.setVars(list),
+    onWatch: (list) => runPanel.setWatchResults(list),
     onClosed: () => endSession(),
     onError: () => { runPanel.consolePrint('[调试连接出错]\n', 'err'); endSession() },
     onClose: () => endSession(),
   })
+  // 新增监控表达式时立即求值（仅在程序暂停时发送，避免阻塞正在运行的 gdb）
+  runPanel.onWatchChanged = (exprs) => {
+    if (activeKind === 'debug' && debugSession && debugSession.paused) {
+      lastWatchExprs = exprs
+      debugSession.watch(exprs)
+    }
+  }
   debugSession.connect()
   debugSession.start(path)
 }

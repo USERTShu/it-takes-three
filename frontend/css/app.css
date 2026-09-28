@@ -30,8 +30,8 @@ html, body {
   z-index: 10;
 }
 .topbar-inner {
-  max-width: 1400px;
-  margin: 0 auto;
+  /* 不设 max-width/居中：内置浏览器（窄视口）与外部浏览器（宽屏）都应保持
+     左侧「大厅」贴左上、右侧「运行/调试」贴右上（run-bar 靠 margin-left:auto 推右） */
   padding: 10px 16px;
   display: flex;
   align-items: center;
@@ -215,6 +215,16 @@ html, body {
   height: calc(100vh - 46px);
   overflow: hidden;
 }
+/* 编辑器页（editor.html）：禁止页面级滚动条（上下拖动空间小、影响编辑器位置），
+   页面高度交给 flex 布局分配，滚动只在编辑器/面板内部发生 */
+.editor-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+.editor-page .topbar { flex: 0 0 auto; }
+.editor-page .editor-layout { height: auto; flex: 1; min-height: 0; }
 .sidebar {
   width: 260px;
   min-width: 220px;

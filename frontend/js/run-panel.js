@@ -59,9 +59,21 @@ export class RunPanel {
     this.varsBody = document.getElementById('vars-body')
     this.varsEmpty = document.getElementById('vars-empty')
     this.stackList = document.getElementById('stack-list')
+    // 监视（自定义监控表达式）
+    this.watchInput = document.getElementById('watch-input')
+    this.watchAdd = document.getElementById('watch-add')
+    this.watchBody = document.getElementById('watch-body')
+    this.watchEmpty = document.getElementById('watch-empty')
+    try {
+      this.watchExprs = JSON.parse(localStorage.getItem('vp_watch_exprs') || '[]')
+      if (!Array.isArray(this.watchExprs)) this.watchExprs = []
+    } catch (e) { this.watchExprs = [] }
+    this._renderWatch({})
+    this._bindWatch()
 
     this.onInput = null // (data) => void  回车发送回调
     this.onClose = null // () => void      点击 ✕ 关闭面板回调
+    this.onWatchChanged = null // (exprs) => void  新增监控表达式回调（立即求值）
 
     this._activeTab = 'terminal'
     this._bindTabs()
@@ -142,10 +154,61 @@ export class RunPanel {
     }
   }
   setInputEnabled(on, placeholder) {
+    // 仅控制终端/调试控制台的 stdin 输入行；监视输入框始终可用
+    // （VS Code 行为：表达式随时可添加，值仅在调试暂停时求值显示）
     for (const input of this._inputs) {
       input.disabled = !on
       input.placeholder = on && placeholder ? placeholder : input.placeholder
     }
+  }
+
+  // ---- 监视（自定义监控表达式，localStorage vp_watch_exprs 持久化） ----
+  _bindWatch() {
+    const add = () => {
+      const v = this.watchInput.value.trim()
+      if (!v) return
+      if (!this.watchExprs.includes(v)) {
+        this.watchExprs.push(v)
+        try { localStorage.setItem('vp_watch_exprs', JSON.stringify(this.watchExprs)) } catch (e) { /* 忽略 */ }
+        this.watchInput.value = ''
+        this._renderWatch({})
+        if (this.onWatchChanged) this.onWatchChanged(this.watchExprs.slice())
+      }
+    }
+    this.watchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') add()
+    })
+    this.watchAdd.addEventListener('click', add)
+  }
+
+  getWatchExprs() { return this.watchExprs.slice() }
+
+  /** 渲染监控列表；values 为 {expr: {value, ok}}，缺失项显示占位 … */
+  _renderWatch(values) {
+    const rows = this.watchExprs.map((expr, idx) => {
+      const r = values[expr] || null
+      const val = r ? (r.ok ? escapeHtml(r.value == null ? '' : String(r.value)) : `<span class="w-err">${escapeHtml(r.value || '求值失败')}</span>`) : '…'
+      return `<tr><td class="v-name">${escapeHtml(expr)}</td><td>${val}</td><td><span class="watch-del" data-idx="${idx}" title="删除监控">✕</span></td></tr>`
+    }).join('')
+    this.watchBody.innerHTML = rows
+    this.watchEmpty.classList.toggle('hidden', rows.length > 0)
+    // 删除按钮委托
+    if (rows) {
+      this.watchBody.querySelectorAll('.watch-del').forEach((el) => {
+        el.addEventListener('click', () => {
+          this.watchExprs.splice(Number(el.dataset.idx), 1)
+          try { localStorage.setItem('vp_watch_exprs', JSON.stringify(this.watchExprs)) } catch (e) { /* 忽略 */ }
+          this._renderWatch({})
+        })
+      })
+    }
+  }
+
+  /** 后端求值结果：{expr, value, ok}[] → 渲染（未返回的表达式显示 …） */
+  setWatchResults(list) {
+    const values = {}
+    for (const r of (list || [])) values[r.expr] = r
+    this._renderWatch(values)
   }
 
   _bindClose() {

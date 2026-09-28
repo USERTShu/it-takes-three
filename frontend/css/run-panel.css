@@ -183,6 +183,38 @@
 .kv-table td.v-name { color: #d2a8ff; }
 .kv-table td.v-type { color: var(--muted); font-size: 11.5px; }
 
+/* ---- 监视（自定义监控表达式，VS Code Watch 风格） ---- */
+.watch-add-row {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+}
+#watch-input {
+  flex: 1;
+  background: #1b1b2a;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 5px 8px;
+  font-size: 12.5px;
+  font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  outline: none;
+}
+#watch-input:focus { border-color: var(--accent); }
+#watch-input:disabled { opacity: .5; }
+.watch-del {
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.watch-del:hover { color: #fff; background: var(--danger); }
+.w-err { color: #ff9b9b; }
+
 .stack-list { padding: 6px 4px; font-size: 12.5px; overflow-y: auto; }
 .stack-frame {
   display: flex;
@@ -197,28 +229,39 @@
 .stack-frame .sf-loc { color: var(--muted); font-size: 11.5px; margin-left: auto; }
 .tab-empty { color: var(--muted); font-size: 12.5px; padding: 14px; }
 
-/* ---- 调试装饰（glyph margin） ---- */
+/* ---- 调试装饰（glyph margin）—— 按 VS Code 布局重构 ---- */
+/* VS Code 参考：
+   - 行号列内右对齐（Monaco 默认，VS Code 同款；不再做左对齐覆盖）
+   - 断点红点 = 实心红圆（VS Code debugIcon.breakpointForeground = #e51400），
+     在 glyph margin 内水平+垂直居中
+   - 当前执行行 = 黄色右箭头（VS Code debugIcon.breakpointStackframeForeground
+     = #ffcc00）+ 整行淡色高亮（editor.stackFrameHighlightBackground）
+   居中的实现机制与 VS Code 一致：Monaco 的 .glyph-margin-widgets .cgmr 是
+   display:flex + align/justify center 的容器，装饰元素（glyphMarginClassName）
+   直接挂在 .cgmr 上，其 ::before 作为 flex item 自动居中，无需绝对定位。
+   （Monaco 核心 bundle 不含 codicon-debug-breakpoint 等调试字形，故用纯 CSS
+   绘制圆点/箭头，效果等同。） */
 .vp-breakpoint-glyph { pointer-events: none; }
+/* 右移 15px：红点/箭头中心落在"行号左侧区域"（gutter 左缘 → 数字左缘，260→310）的中点。
+   行号列因 Monaco 默认 lineNumbersMinChars=5 而右对齐、数字左侧留白 ~30px，若装饰留在
+   glyph 列（260→280）左半会离数字很远；transform 只平移视觉、不改 Monaco 布局与折行。
+   断点与当前行箭头共用同一列，平移量一致保持对齐。 */
+.vp-breakpoint-glyph,
+.vp-current-line-glyph {
+  transform: translateX(15px);
+}
 .vp-breakpoint-glyph::before {
   content: "";
-  position: absolute;
-  left: 5px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 11px;
-  height: 11px;
+  width: 13px;
+  height: 13px;
   border-radius: 50%;
-  background: #f14c4c;
-  border: 1px solid rgba(255, 255, 255, .35);
+  background: #e51400;
 }
-.vp-current-line { background: rgba(255, 221, 87, .12); }
+.vp-current-line { background: rgba(255, 255, 255, .08); }
 .vp-current-line-glyph { pointer-events: none; }
 .vp-current-line-glyph::before {
   content: "➤";
-  position: absolute;
-  left: 2px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #ffd75b;
-  font-size: 12px;
+  color: #ffcc00;
+  font-size: 13px;
+  line-height: 1;
 }
