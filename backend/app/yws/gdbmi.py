@@ -144,10 +144,12 @@ class GdbSession:
                 results.append(self._evaluate(expr))
             self.emit({"t": "watch", "results": results})
         elif t == "stdin":
-            # 程序 stdin：以 gdb 控制台输入转发（inferior 运行中等待输入时 gdb 会透传）
+            # 程序 stdin：以 gdb 控制台输入转发（inferior 运行中等待输入时 gdb 会透传）。
+            # 必须经 _write 回喂响应：write() 的返回值里夹带 inferior 对该输入的回显
+            # （如 "got 42"）以及 *stopped 退出事件，直接丢弃会导致输出/退出丢失。
             data = cmd.get("data", "")
             try:
-                self.controller.write(data.rstrip("\n"), timeout_sec=1)
+                self._write(data.rstrip("\n"), timeout_sec=1)
             except Exception:
                 pass
 
@@ -202,6 +204,11 @@ class GdbSession:
             self._emit_breakpoints()
         elif mtype in ("output", "console"):
             text = payload if isinstance(payload, str) else (payload or "")
+            if mtype == "output":
+                # pygdbmi 把 inferior 程序的裸输出按 \n 切行并剥掉行尾换行
+                # （_get_responses_list: split("\n") + 过滤空白行），这里补回 \n，
+                # 否则前端行缓冲终端收不到换行、多行输出会被拼成一行（"换行失效"）。
+                text += "\n"
             if text.strip():
                 self.emit({"t": "stdout", "data": text})
         elif mtype == "log":
