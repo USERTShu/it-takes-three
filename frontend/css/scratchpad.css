@@ -1,0 +1,245 @@
+/* scratchpad.css — 协作草稿纸（编辑器/草稿纸 可切换页面）
+ * 布局：与 .editor-layout 同级兄弟，占满 editor-page 剩余高度（flex:1）。
+ * 工具栏：画笔/橡皮/清空 + 线宽 2/4/8/16。
+ * 画布区：flex 居中，wrap 等比缩放（1200:800），canvas + 名称覆盖层。
+ * 另含顶栏“编辑器/草稿纸”分段切换控件样式（.view-toggle）。
+ */
+
+/* ---- 顶栏视图切换分段控件 ---- */
+.view-toggle {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(0, 0, 0, .05);
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+.view-toggle button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1;
+  white-space: nowrap;
+}
+.view-toggle button:hover { background: rgba(0, 0, 0, .06); }
+.view-toggle button.active {
+  background: #4f8cff;
+  color: #fff;
+}
+
+/* ---- 容器（editor.html 中与 .editor-layout 并列；横向 = 左侧页栏 + 主区） ---- */
+.editor-page .scratchpad-container {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  background: #fafafa;
+}
+.editor-page .scratchpad-container.hidden { display: none; }
+
+/* ---- 左侧多页栏 ---- */
+.scratchpad-pages {
+  width: 168px;
+  flex: 0 0 168px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  background: #fff;
+  border-right: 1px solid rgba(0, 0, 0, .08);
+  overflow-y: auto;
+}
+.scratchpad-pages-title {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 0 4px;
+}
+.scratchpad-page-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.scratchpad-page {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #333;
+  white-space: nowrap;
+}
+.scratchpad-page:hover { background: rgba(0, 0, 0, .05); }
+.scratchpad-page.active { background: #4f8cff; color: #fff; }
+.scratchpad-page .del {
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: .45;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 12px;
+  line-height: 1;
+}
+.scratchpad-page .del:hover { opacity: 1; }
+.scratchpad-page-add {
+  border: none;
+  background: rgba(0, 0, 0, .04);
+  color: #333;
+  font-size: 13px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.scratchpad-page-add:hover { background: rgba(0, 0, 0, .08); }
+
+/* ---- 主区（工具栏 + 画布） ---- */
+.scratchpad-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- 工具栏 ---- */
+.scratchpad-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 8px 16px;
+  background: #fff;
+  border-bottom: 1px solid rgba(0, 0, 0, .08);
+}
+.scratchpad-toolbar .grp {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, .04);
+  border-radius: 8px;
+  padding: 3px;
+}
+.scratchpad-toolbar button {
+  border: none;
+  background: transparent;
+  color: #333;
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1;
+  white-space: nowrap;
+}
+.scratchpad-toolbar button:hover { background: rgba(0, 0, 0, .07); }
+.scratchpad-toolbar button.active {
+  background: #4f8cff;
+  color: #fff;
+}
+.scratchpad-toolbar .danger { color: #d13438; }
+.scratchpad-toolbar .danger:hover { background: rgba(209, 52, 56, .12); }
+
+/* ---- 画布区：居中 + 等比缩放（宽高取能同时容纳的最大值，防超高/超宽） ---- */
+.scratchpad-canvas-zone {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 16px;
+}
+.scratchpad-canvas-wrap {
+  position: relative;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, .12);
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, .06);
+  /* JS 会按可用空间设置宽高；此默认值兜底（等比 1200:800） */
+  aspect-ratio: 1200 / 800;
+  width: 100%;
+  max-width: 100%;
+}
+#scratch-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+  touch-action: none; /* 触屏/轨迹板拖动不滚动页面 */
+  border-radius: 7px;
+}
+
+/* ---- 名称覆盖层：复用 cursors.css 的 .yRemoteLabel（浮在笔尖上方） ---- */
+.scratchpad-label-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ---- 文本层（HTML 文本框覆盖在画布上，可交互） ---- */
+.scratchpad-text-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 6;
+}
+.scratch-text {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding: 2px 4px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: #000; /* 字体颜色统一黑色 */
+  font-size: 16px;
+  line-height: 1.3;
+  overflow: hidden;
+  cursor: move;
+  user-select: none;
+  pointer-events: auto;
+  outline: none;
+}
+.scratch-text-content {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+.scratch-text.selected {
+  border-color: #4f8cff;
+  background: rgba(79, 140, 255, .08);
+}
+.scratch-text.editing {
+  cursor: text;
+  user-select: text;
+  outline: none;
+  border-color: #4f8cff;
+}
+.scratch-text-handle {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 12px;
+  height: 12px;
+  background: #4f8cff;
+  border: 2px solid #fff;
+  border-radius: 3px;
+  cursor: nwse-resize;
+  display: none;
+}
+.scratch-text.selected .scratch-text-handle { display: block; }

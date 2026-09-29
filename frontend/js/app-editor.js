@@ -61,6 +61,7 @@ const bindings = new Map() // path → {model, binding, cursors}
 
 // ---- 运行/调试状态 ----
 let runPanel = null // 底部面板
+let scratchpad = null // 草稿纸（协作画布，编辑器/草稿纸 视图切换）
 let breakpointMgr = null // 断点/当前行装饰
 let runSession = null // 运行会话客户端
 let debugSession = null // 调试会话客户端
@@ -142,6 +143,37 @@ async function initEditor() {
   })
   window.__vp = y // 调试
 
+  // ---- 草稿纸（编辑器/草稿纸 视图切换）----
+  // annotations 走 Y.Map：sync step2 全量 diff，天然随现有协议同步，后端零改动。
+  const scratchpadMod = await import('./scratchpad.js')
+  scratchpad = scratchpadMod.initScratchpad({
+    doc: y.doc,
+    awareness: y.awareness,
+    getShowNames: () => namesVisible,
+  })
+  // 视图切换：显示草稿纸 → 隐藏编辑器区（顺带收起运行面板与运行/调试按钮）；
+  // 切回编辑器 → 重新布局 Monaco + 重算光标标签坐标。
+  const viewButtons = document.querySelectorAll('.view-toggle button')
+  const editorLayoutEl = document.querySelector('.editor-layout')
+  const scratchpadEl = document.getElementById('scratchpad-container')
+  const runBarEl = document.querySelector('.run-bar')
+  function switchView(view) {
+    const isScratch = view === 'scratchpad'
+    viewButtons.forEach((b) => b.classList.toggle('active', b.dataset.view === view))
+    editorLayoutEl.classList.toggle('hidden', isScratch)
+    scratchpadEl.classList.toggle('hidden', !isScratch)
+    runBarEl.classList.toggle('hidden', isScratch)
+    if (isScratch) {
+      if (runPanel) runPanel.hide()
+    } else if (editor) {
+      editor.layout() // display:none 期间 Monaco 未重新布局，切回时强制重排
+      window.dispatchEvent(new Event('resize'))
+    }
+  }
+  viewButtons.forEach((b) => {
+    b.addEventListener('click', () => switchView(b.dataset.view))
+  })
+
   const badge = document.getElementById('conn-badge')
   y.provider.on('status', ({ status }) => {
     badge.textContent = status === 'connected' ? '已连接' : status === 'disconnected' ? '已断开' : '连接中…'
@@ -149,7 +181,7 @@ async function initEditor() {
   })
   y.provider.on('synced', () => maybeOpenFirst())
 
-  // 远端用户名标签开关（localStorage 持久化，默认开）
+  // 远端用户名标签开关（localStorage 持久化，默认开；草稿纸名称框与之一致）
   const toggleNames = document.getElementById('toggle-names')
   const saved = localStorage.getItem('vp_show_names')
   namesVisible = saved === null ? true : saved === '1'
@@ -158,7 +190,9 @@ async function initEditor() {
     namesVisible = toggleNames.checked
     localStorage.setItem('vp_show_names', namesVisible ? '1' : '0')
     if (currentCursors) currentCursors.setShowNames(namesVisible)
+    if (scratchpad) scratchpad.setShowNames(namesVisible)
   })
+  if (scratchpad) scratchpad.setShowNames(namesVisible)
 
   renderMembers()
   startTimer()

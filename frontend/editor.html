@@ -5,9 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>编辑器 · 远程 VP 协作编辑器</title>
   <link rel="stylesheet" href="/vendor/monaco-editor-0.52.2/min/vs/editor/editor.main.css">
-  <link rel="stylesheet" href="/css/app.css?v=13">
-  <link rel="stylesheet" href="/css/cursors.css?v=13">
-  <link rel="stylesheet" href="/css/run-panel.css?v=13">
+  <link rel="stylesheet" href="/css/app.css?v=15">
+  <link rel="stylesheet" href="/css/cursors.css?v=15">
+  <link rel="stylesheet" href="/css/run-panel.css?v=15">
+  <link rel="stylesheet" href="/css/scratchpad.css?v=15">
   <script type="importmap">
   {
     "imports": {
@@ -52,6 +53,10 @@
       <span id="timer" class="timer">--:--:--</span>
       <span id="conn-badge" class="conn-badge connecting">连接中…</span>
       <span id="user-info"></span>
+      <span class="view-toggle" title="切换 编辑器 / 草稿纸">
+        <button data-view="editor" class="active">编辑器</button>
+        <button data-view="scratchpad">草稿纸</button>
+      </span>
       <label class="toggle-names" title="显示/隐藏远端用户名标签">
         <input type="checkbox" id="toggle-names" checked> 名称
       </label>
@@ -145,6 +150,37 @@
     </div>
   </div>
 
+  <section id="scratchpad-container" class="scratchpad-container hidden">
+    <aside class="scratchpad-pages">
+      <div class="scratchpad-pages-title">页面</div>
+      <div id="scratch-page-list" class="scratchpad-page-list"></div>
+      <button id="scratch-page-add" class="scratchpad-page-add" title="新建空白页">+ 新建页</button>
+    </aside>
+    <div class="scratchpad-main">
+      <div class="scratchpad-toolbar">
+        <span class="grp" title="工具">
+          <button class="scratchpad-tool active" data-tool="pen" title="画笔批注">画笔</button>
+          <button class="scratchpad-tool" data-tool="eraser" title="擦除线条（以整条线为单位）">擦除</button>
+          <button class="scratchpad-tool" data-tool="text" title="文本（点击画布生成文本框，拖右下角调大小，Delete 删除）">文本</button>
+          <button id="scratch-clear" class="danger" title="一键清空当前页批注">清空</button>
+        </span>
+        <span class="grp" title="画笔粗细">
+          <button class="scratchpad-width active" data-width="2">2</button>
+          <button class="scratchpad-width" data-width="4">4</button>
+          <button class="scratchpad-width" data-width="8">8</button>
+          <button class="scratchpad-width" data-width="16">16</button>
+        </span>
+      </div>
+      <div class="scratchpad-canvas-zone">
+        <div class="scratchpad-canvas-wrap">
+          <canvas id="scratch-canvas"></canvas>
+          <div id="scratch-label-layer" class="scratchpad-label-layer"></div>
+          <div id="scratch-text-layer" class="scratchpad-text-layer"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <div id="settings-pop" class="settings-pop hidden">
     <div class="settings-title">编辑器设置</div>
     <div class="settings-row">
@@ -186,8 +222,8 @@
     </div>
   </div>
 
-  <script src="/js/auth.js?v=13"></script>
-  <script src="/js/api.js?v=13"></script>
-  <script type="module" src="/js/app-editor.js?v=13"></script>
+  <script src="/js/auth.js?v=15"></script>
+  <script src="/js/api.js?v=15"></script>
+  <script type="module" src="/js/app-editor.js?v=15"></script>
 </body>
 </html>
