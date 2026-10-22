@@ -243,6 +243,42 @@ html, body {
 }
 #member-list { padding: 0 12px 8px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
 .member { display: flex; align-items: center; gap: 6px; }
+.member.offline { opacity: .45; }
+.captain-badge { font-size: 11px; padding: 0 6px; border-radius: 8px; background: #b7791f; color: #fff; }
+.readonly-hint { font-size: 11px; color: var(--muted); padding: 0 12px 6px; }
+
+/* 成员面板标题行 + 交接队长菜单 */
+#members-panel { position: relative; }
+#members-panel .panel-title { display: flex; align-items: center; }
+.handover-btn {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 0 6px;
+  cursor: pointer;
+  text-transform: none;
+}
+.handover-btn:hover { color: var(--text); border-color: var(--accent); }
+.handover-menu {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 30px;
+  z-index: 20;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .45);
+  padding: 4px;
+  font-size: 13px;
+}
+.handover-menu .menu-title { color: var(--muted); font-size: 11px; padding: 4px 8px; }
+.handover-menu .menu-item { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-radius: 4px; cursor: pointer; }
+.handover-menu .menu-item:hover { background: #32324a; }
+.handover-menu .menu-empty { color: var(--muted); font-size: 12px; padding: 6px 8px; }
 #files-panel { flex: 1; display: flex; flex-direction: column; }
 .file-list { flex: 1; padding: 0 8px; overflow-y: auto; }
 .file-item {
@@ -255,8 +291,40 @@ html, body {
   font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
   font-size: 13px;
 }
+.file-item > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-item:hover { background: #32324a; }
 .file-item.active { background: var(--accent); color: #fff; }
+/* 右键菜单（context-menu.js） */
+.ctx-menu {
+  position: fixed;
+  z-index: 100;
+  min-width: 120px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .45);
+  padding: 4px;
+  font-size: 13px;
+  color: var(--text);
+}
+.ctx-item { padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+.ctx-item:hover { background: #32324a; }
+.ctx-item.danger { color: var(--danger); }
+.inline-rename {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1b1b2a;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 1px 4px;
+  font: inherit;
+  outline: none;
+}
+
+/* 队员：文件跟随队长，不可点击切换 */
+.file-list.follow .file-item { cursor: default; }
+.file-list.follow .file-item:not(.active):hover { background: transparent; }
 .file-del { color: var(--muted); padding: 0 4px; border-radius: 4px; }
 .file-del:hover { color: #fff; background: var(--danger); }
 .file-list .empty { color: var(--muted); font-size: 12px; padding: 8px 10px; }

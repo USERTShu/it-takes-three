@@ -202,6 +202,8 @@ export class DebugSession {
 
   close() {
     if (this.ws) {
+      // 先解绑回调：主动关闭的旧会话异步触发的 onclose 不能再回调 UI（否则会把新会话的状态复位）
+      this.ws.onopen = this.ws.onerror = this.ws.onclose = this.ws.onmessage = null
       this.ws.close()
       this.ws = null
     }

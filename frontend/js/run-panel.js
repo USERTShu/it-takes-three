@@ -28,12 +28,11 @@ class TermView {
   }
 
   _commit(cls) {
-    if (this._line.length || cls) {
-      const div = document.createElement('div')
-      div.className = 't-line' + (cls ? ' ' + cls : '')
-      div.textContent = this._line
-      this.el.appendChild(div)
-    }
+    // 空行也要保留（程序输出里的空行有意义，如多组数据之间的空行）；空 div 的高度由 CSS 撑开
+    const div = document.createElement('div')
+    div.className = 't-line' + (cls ? ' ' + cls : '')
+    div.textContent = this._line
+    this.el.appendChild(div)
     this._line = ''
   }
 
@@ -56,6 +55,7 @@ export class RunPanel {
     this.termInput = document.getElementById('term-input')
     this.consoleInput = document.getElementById('console-input')
     this._inputs = [this.termInput, this.consoleInput]
+    this.eofBtn = document.getElementById('term-eof')
     this.varsBody = document.getElementById('vars-body')
     this.varsEmpty = document.getElementById('vars-empty')
     this.stackList = document.getElementById('stack-list')
@@ -72,6 +72,7 @@ export class RunPanel {
     this._bindWatch()
 
     this.onInput = null // (data) => void  回车发送回调
+    this.onEof = null // () => void       发送 EOF 回调（终端）
     this.onClose = null // () => void      点击 ✕ 关闭面板回调
     this.onWatchChanged = null // (exprs) => void  新增监控表达式回调（立即求值）
 
@@ -142,16 +143,36 @@ export class RunPanel {
   }
 
   // ---- 输入行（终端 / 调试控制台共用同一输入回调） ----
+  // textarea：粘贴多行样例保留换行（input 会吞掉换行）；回车发送整段，Shift+回车换行，
+  // Ctrl+D 发送 EOF（仅终端）；高度随内容增长，最多 6 行
   _bindInput() {
+    const fit = (input) => {
+      input.style.height = 'auto'
+      input.style.height = Math.min(input.scrollHeight, 6 * 18 + 6) + 'px'
+    }
     for (const input of this._inputs) {
       input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+          e.preventDefault()
           const val = input.value
-          if (val && this.onInput) this.onInput(val + '\n')
+          if (this.onInput) this.onInput(val + '\n') // 空行也发送（程序可能在等一个空行）
           input.value = ''
+          fit(input)
+        } else if (input === this.termInput && (e.ctrlKey || e.metaKey) && (e.key || '').toLowerCase() === 'd') {
+          e.preventDefault()
+          this._sendEof()
         }
       })
+      input.addEventListener('input', () => fit(input))
     }
+    if (this.eofBtn) this.eofBtn.addEventListener('click', () => this._sendEof())
+  }
+  _sendEof() {
+    if (this.termInput.disabled) return
+    // 输入框里还没发送的内容先发出去，再关闭 stdin
+    if (this.termInput.value && this.onInput) this.onInput(this.termInput.value)
+    this.termInput.value = ''
+    if (this.onEof) this.onEof()
   }
   setInputEnabled(on, placeholder) {
     // 仅控制终端/调试控制台的 stdin 输入行；监视输入框始终可用
@@ -160,6 +181,7 @@ export class RunPanel {
       input.disabled = !on
       input.placeholder = on && placeholder ? placeholder : input.placeholder
     }
+    if (this.eofBtn) this.eofBtn.disabled = !on
   }
 
   // ---- 监视（自定义监控表达式，localStorage vp_watch_exprs 持久化） ----

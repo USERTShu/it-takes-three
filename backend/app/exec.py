@@ -1,12 +1,15 @@
 # exec.py — 编译与程序执行核心（运行/调试共用）
 # 功能：从比赛 YDoc 取源码写入工作目录 → g++17 编译（run/debug 两套 flags）→
-#       以 asyncio 子进程运行程序：流式转发 stdout/stderr、写入 stdin、时限 kill。
+#       以 asyncio 子进程运行程序：流式转发 stdout/stderr、写入 stdin（可关闭发送 EOF）、时限 kill、内存上限。
 # 依赖：asyncio、y_py（YDoc 源码）、config
-# 可调参数：RUN_COMPILE_TIMEOUT_SECONDS / RUN_TIME_LIMIT_SECONDS / RUN_DIR / GDB_BIN（config）
+# 可调参数：RUN_COMPILE_TIMEOUT_SECONDS / RUN_TIME_LIMIT_SECONDS / RUN_MEMORY_LIMIT_MB / RUN_DIR / GDB_BIN（config）
 import asyncio
+import codecs
 import os
 import re
+import resource
 import shutil
+import sys
 import time
 
 from .config import get_settings
@@ -113,7 +116,7 @@ async def compile_program(room: ContestRoom, path: str, debug: bool,
             # 中间层必须把 g++ 的退出码透传出来（sys.exit），否则 python 进程恒返回 0，
             # 编译失败（如漏写 std::）会被误判为成功，随后启动不存在的 a.out 而静默卡死。
             _py = "import subprocess,sys;sys.exit(subprocess.run(sys.argv[1:]).returncode)"
-            _spawn = ["/usr/bin/python3.11", "-u", "-c", _py, *cmd]
+            _spawn = [sys.executable, "-u", "-c", _py, *cmd]
             proc = await asyncio.create_subprocess_exec(
                 *_spawn, env=_env, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
             try:
@@ -135,9 +138,18 @@ async def compile_program(room: ContestRoom, path: str, debug: bool,
     return False, "编译失败", None  # 不可达（保险）
 
 
+def _limit_memory() -> None:
+    """功能：子进程 exec 前设置地址空间上限（防止失控程序吃光内存拖垮整机/协作同步）。
+    依赖：resource。可调参数：RUN_MEMORY_LIMIT_MB（≤0 不限制）。"""
+    mb = _settings.RUN_MEMORY_LIMIT_MB
+    if mb > 0:
+        limit = mb * 1024 * 1024
+        resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+
+
 class RunProcess:
     """功能：一个正在运行的程序（asyncio 子进程 + 流式管道 + 时限控制）。
-    API: start() 启动并开始读输出；write_stdin(str)；terminate()；
+    API: start() 启动并开始读输出；write_stdin(str)；close_stdin()；terminate()；
          wait() 等待退出返回码；elapsed_ms()；timed_out()。
     依赖：asyncio、config.RUN_TIME_LIMIT_SECONDS。可调参数：无。"""
 
@@ -165,6 +177,7 @@ class RunProcess:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=self.cwd,
+            preexec_fn=_limit_memory,
         )
         self.start_time = time.monotonic()
         self._readers = [
@@ -174,15 +187,23 @@ class RunProcess:
         self._timeout_task = asyncio.create_task(self._enforce_timeout())
 
     async def _read(self, stream, callback) -> None:
-        """功能：逐行读取管道并回调（utf-8 容错解码）。
+        """功能：按块读取管道并回调（增量 utf-8 容错解码，多字节字符跨块也不乱码）。
+        不用 readline：单行超过 64KB（StreamReader 默认上限）会抛异常，读取中断后
+        管道写满、程序阻塞，最终被误判为超时。前端终端自行按换行拼行。
         API: _read(StreamReader, callable) → None
-        依赖：asyncio。可调参数：无。"""
+        依赖：asyncio、codecs。可调参数：无。"""
+        decoder = codecs.getincrementaldecoder("utf-8")("replace")
         try:
             while True:
-                line = await stream.readline()
-                if not line:
+                chunk = await stream.read(65536)
+                if not chunk:
+                    tail = decoder.decode(b"", final=True)
+                    if tail:
+                        callback(tail)
                     break
-                callback(line.decode("utf-8", "replace"))
+                text = decoder.decode(chunk)
+                if text:
+                    callback(text)
         except Exception:
             pass
 
@@ -203,6 +224,16 @@ class RunProcess:
             try:
                 self.proc.stdin.write(data.encode("utf-8"))
                 await self.proc.stdin.drain()
+            except Exception:
+                pass
+
+    def close_stdin(self) -> None:
+        """功能：关闭程序 stdin（发送 EOF，供 while (cin >> x) 类程序结束读取）。
+        API: close_stdin() → None
+        依赖：asyncio。可调参数：无。"""
+        if self.proc and self.proc.stdin and not self.proc.stdin.is_closing():
+            try:
+                self.proc.stdin.close()
             except Exception:
                 pass
 

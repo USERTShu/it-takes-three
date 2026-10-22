@@ -56,6 +56,8 @@ export class RunSession {
 
   start(path) { this.send({ t: 'start', path }) }
   sendStdin(data) { this.send({ t: 'stdin', data }) }
+  /** 关闭程序 stdin（EOF），供 while (cin >> x) 类程序结束读取 */
+  eof() { this.send({ t: 'eof' }) }
   kill() { this.send({ t: 'kill' }) }
 
   send(obj) {
@@ -68,6 +70,8 @@ export class RunSession {
 
   close() {
     if (this.ws) {
+      // 先解绑回调：主动关闭的旧会话异步触发的 onclose 不能再回调 UI（否则会把新会话的状态复位）
+      this.ws.onopen = this.ws.onerror = this.ws.onclose = this.ws.onmessage = null
       this.ws.close()
       this.ws = null
     }

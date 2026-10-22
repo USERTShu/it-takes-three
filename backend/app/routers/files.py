@@ -19,13 +19,16 @@ from ..yws.sync import MSG_SYNC, encode_update_message
 router = APIRouter()
 
 
-async def _get_room(slug: str, db: Session, user: User) -> ContestRoom:
+async def _get_room(slug: str, db: Session, user: User, captain_only: bool = False) -> ContestRoom:
     """功能：校验用户是该比赛成员并返回对应房间；否则抛 403/404。
-    API: _get_room(str, Session, User) → ContestRoom
-    依赖：state.rooms、models。可调参数：无。"""
+    captain_only=True 时额外要求是队长（写操作：只有队长能修改代码文件）。
+    API: _get_room(str, Session, User, captain_only=False) → ContestRoom
+    依赖：state.rooms、models。可调参数：captain_only。"""
     contest = db.query(Contest).filter(Contest.slug == slug).first()
     if contest is None:
         raise HTTPException(status_code=404, detail="比赛不存在")
+    if captain_only and contest.creator_id != user.id:
+        raise HTTPException(status_code=403, detail="只有队长可以修改文件")
     member = (
         db.query(ContestMember)
         .filter(ContestMember.contest_id == contest.id, ContestMember.user_id == user.id)
@@ -80,7 +83,7 @@ async def write_file(slug: str, path: str, body: dict,
     请求：POST /api/contests/{slug}/files/{path}  body: {"content": str}
     依赖：_get_room、y_py。可调参数：无。
     返回：{"path": str, "content": str}。"""
-    room = await _get_room(slug, db, user)
+    room = await _get_room(slug, db, user, captain_only=True)
     content = body.get("content", "") if isinstance(body, dict) else ""
     files_map = room.get_map("files")
     sv_before = bytes(Y.encode_state_vector(room.doc))
@@ -96,7 +99,7 @@ async def delete_file(slug: str, path: str, db: Session = Depends(get_db),
     """功能：删除文件（Yjs 内实际是“删除该 Y.Text”，其它客户端 diff 同步）。
     请求：DELETE /api/contests/{slug}/files/{path}
     依赖：_get_room、y_py。可调参数：无。"""
-    room = await _get_room(slug, db, user)
+    room = await _get_room(slug, db, user, captain_only=True)
     files_map = room.get_map("files")
     sv_before = bytes(Y.encode_state_vector(room.doc))
     with room.doc.begin_transaction() as txn:

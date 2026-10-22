@@ -20,7 +20,7 @@ _STATE_BY_REASON = {
     "end-stepping-range": "step",
     "function-finished": "step",
     "signal-received": "signal",
-    "signalled": "signal",
+    "exited-signalled": "exit",  # 程序被信号杀死（如崩溃后继续），会话应结束
     "exited": "exit",
     "exited-normally": "exit",
 }
@@ -37,8 +37,10 @@ class GdbSession:
         self.source_path = source_path
         self.emit = emit  # callable(evt_dict)：线程安全地把事件交给 asyncio 队列
         self.controller = GdbController(
+            # --cd：gdb 与被调试程序在工作目录内运行（pygdbmi 不支持 cwd，否则 freopen("in") 找不到文件）
             command=["env", "-u", "LD_PRELOAD",
-                     _settings.GDB_BIN, "--nx", "--quiet", "--interpreter=mi3", bin_path])
+                     _settings.GDB_BIN, "--nx", "--quiet", "--interpreter=mi3",
+                     "--cd=" + os.path.dirname(bin_path), bin_path])
         self.breakpoints: dict[int, str] = {}  # line -> gdb bkpt number
         self._cmd_q: queue.Queue = queue.Queue()
         self._alive = True
@@ -244,7 +246,9 @@ class GdbSession:
         # 断点命中：gdb 报告的行号是相对源码的（含编译目录差异时可能 +1/-1，接受）
         self.emit(evt)
         if state == "exit":
-            self.emit({"t": "exit", "code": payload.get("exit-code"), "time_ms": None})
+            # exited-normally 不带 exit-code（即 0）；exited-signalled 用信号名（如 SIGSEGV）
+            code = payload.get("exit-code") or payload.get("signal-name") or "0"
+            self.emit({"t": "exit", "code": code, "time_ms": None})
         if state != "exit":
             self._emit_stack()
             self._emit_vars()

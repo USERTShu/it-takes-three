@@ -73,8 +73,10 @@
   <div class="editor-layout">
     <aside id="sidebar" class="sidebar">
       <div id="members-panel">
-        <div class="panel-title">成员</div>
+        <div class="panel-title">成员<button id="btn-handover" class="handover-btn hidden" title="把队长身份交接给其他成员">交接队长</button></div>
         <div id="member-list"></div>
+        <div id="readonly-hint" class="readonly-hint hidden">只有队长可以编辑代码，打开的文件跟随队长切换</div>
+        <div id="handover-menu" class="handover-menu hidden"></div>
       </div>
       <div id="files-panel">
         <div class="panel-title">文件</div>
@@ -114,14 +116,15 @@
           <div id="term-output" class="term-output"></div>
           <div class="term-input-row">
             <span class="term-prompt">&gt;</span>
-            <input id="term-input" type="text" spellcheck="false" placeholder="标准输入 (stdin)，回车发送" disabled>
+            <textarea id="term-input" rows="1" spellcheck="false" placeholder="标准输入 (stdin)：回车发送，可粘贴多行，Shift+回车换行，Ctrl+D 发送 EOF" disabled></textarea>
+            <button id="term-eof" class="term-eof" title="关闭标准输入（EOF），用于 while (cin >> x) 这类读到文件尾的程序" disabled>EOF</button>
           </div>
         </div>
         <div id="tab-console" class="run-tabpane">
           <div id="console-output" class="term-output"></div>
           <div class="term-input-row">
             <span class="term-prompt">&gt;</span>
-            <input id="console-input" type="text" spellcheck="false" placeholder="调试时程序的标准输入，回车发送" disabled>
+            <textarea id="console-input" rows="1" spellcheck="false" placeholder="调试时程序的标准输入，回车发送" disabled></textarea>
           </div>
         </div>
         <div id="tab-vars" class="run-tabpane">
@@ -162,7 +165,17 @@
           <button class="scratchpad-tool active" data-tool="pen" title="画笔批注">画笔</button>
           <button class="scratchpad-tool" data-tool="eraser" title="擦除线条（以整条线为单位）">擦除</button>
           <button class="scratchpad-tool" data-tool="text" title="文本（点击画布生成文本框，拖右下角调大小，Delete 删除）">文本</button>
+          <button class="scratchpad-tool" data-tool="laser" title="激光笔（按住拖动指示位置，轨迹自动消失，不保存）">激光笔</button>
           <button id="scratch-clear" class="danger" title="一键清空当前页批注">清空</button>
+        </span>
+        <span class="grp" title="画笔颜色">
+          <button class="scratchpad-color active" data-color="" title="我的颜色"></button>
+          <button class="scratchpad-color" data-color="#222222" title="黑"></button>
+          <button class="scratchpad-color" data-color="#e53935" title="红"></button>
+          <button class="scratchpad-color" data-color="#1e88e5" title="蓝"></button>
+          <button class="scratchpad-color" data-color="#43a047" title="绿"></button>
+          <button class="scratchpad-color" data-color="#fb8c00" title="橙"></button>
+          <input type="color" id="scratch-color-custom" class="scratchpad-color-custom" value="#8e24aa" title="自定义颜色">
         </span>
         <span class="grp" title="画笔粗细">
           <button class="scratchpad-width active" data-width="2">2</button>
@@ -216,8 +229,8 @@
   <div id="waiting-overlay" class="overlay hidden">
     <div class="overlay-card">
       <h2>比赛尚未开始</h2>
-      <p>等待创建者在大厅点击「开始比赛」…</p>
-      <button id="btn-start-here" class="btn primary hidden">我是创建者，开始比赛</button>
+      <p>等待队长在大厅点击「开始比赛」…</p>
+      <button id="btn-start-here" class="btn primary hidden">我是队长，开始比赛</button>
       <p id="waiting-error" class="error hidden"></p>
     </div>
   </div>

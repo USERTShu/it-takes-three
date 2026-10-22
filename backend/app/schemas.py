@@ -36,6 +36,12 @@ class ContestCreate(BaseModel):
     duration_minutes: int = 300
 
 
+class CaptainTransfer(BaseModel):
+    """功能：交接队长请求体。user_id 为接任者（须为该比赛成员）。"""
+    model_config = ConfigDict(extra="forbid")
+    user_id: int
+
+
 class MemberOut(BaseModel):
     """功能：比赛成员响应（含比赛开始时分配的颜色）。"""
     model_config = ConfigDict(from_attributes=True)

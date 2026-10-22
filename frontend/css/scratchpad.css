@@ -1,7 +1,7 @@
 /* scratchpad.css — 协作草稿纸（编辑器/草稿纸 可切换页面）
  * 布局：与 .editor-layout 同级兄弟，占满 editor-page 剩余高度（flex:1）。
- * 工具栏：画笔/橡皮/清空 + 线宽 2/4/8/16。
- * 画布区：flex 居中，wrap 等比缩放（1200:800），canvas + 名称覆盖层。
+ * 工具栏：画笔/橡皮/文本/激光笔/清空 + 线宽 2/4/8/16 + 颜色色块/自定义取色。
+ * 画布区：可滚动，wrap 等比缩放（2400:1600，适配尺寸的 2 倍），canvas + 名称覆盖层。
  * 另含顶栏“编辑器/草稿纸”分段切换控件样式（.view-toggle）。
  */
 
@@ -78,6 +78,18 @@
   color: #333;
   white-space: nowrap;
 }
+.scratchpad-page > .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scratchpad-page .grip {
+  flex: 0 0 auto;
+  margin-right: 6px;
+  opacity: .4;
+  cursor: grab;
+  user-select: none;
+}
+.scratchpad-page .grip:hover { opacity: 1; }
+.scratchpad-page.dragging { opacity: .5; }
+.scratchpad-page.drop-before { box-shadow: inset 0 2px 0 #4f8cff; }
+.scratchpad-page.drop-after { box-shadow: inset 0 -2px 0 #4f8cff; }
 .scratchpad-page:hover { background: rgba(0, 0, 0, .05); }
 .scratchpad-page.active { background: #4f8cff; color: #fff; }
 .scratchpad-page .del {
@@ -145,6 +157,22 @@
   background: #4f8cff;
   color: #fff;
 }
+/* 颜色色块（背景由 JS 按 data-color 设置；空 = 用户颜色）+ 自定义取色器 */
+.scratchpad-toolbar button.scratchpad-color,
+.scratchpad-color-custom {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .15);
+  cursor: pointer;
+}
+.scratchpad-color-custom { background: none; }
+.scratchpad-color-custom::-webkit-color-swatch-wrapper { padding: 0; }
+.scratchpad-color-custom::-webkit-color-swatch { border: none; border-radius: 50%; }
+.scratchpad-toolbar button.scratchpad-color.active,
+.scratchpad-color-custom.active { box-shadow: 0 0 0 2px #4f8cff; }
 .scratchpad-toolbar .danger { color: #d13438; }
 .scratchpad-toolbar .danger:hover { background: rgba(209, 52, 56, .12); }
 
@@ -153,9 +181,7 @@
   flex: 1;
   min-height: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
+  overflow: auto; /* 画布为适配尺寸的 2 倍，滚动查看 */
   padding: 16px;
 }
 .scratchpad-canvas-wrap {
@@ -164,10 +190,11 @@
   border: 1px solid rgba(0, 0, 0, .12);
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, .06);
-  /* JS 会按可用空间设置宽高；此默认值兜底（等比 1200:800） */
-  aspect-ratio: 1200 / 800;
+  /* JS 会按可用空间设置宽高；此默认值兜底（等比 2400:1600） */
+  aspect-ratio: 2400 / 1600;
   width: 100%;
-  max-width: 100%;
+  flex-shrink: 0;
+  margin: auto; /* 比画布区小时居中；比画布区大时从左上角开始，可完整滚动（flex 居中会裁掉左/上） */
 }
 #scratch-canvas {
   display: block;

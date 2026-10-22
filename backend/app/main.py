@@ -1,7 +1,8 @@
 # main.py — FastAPI 应用装配
-# 功能：create_app() 组装路由/静态目录/lifespan（init_db），并提供 ASGI 入口 app。
+# 功能：create_app() 组装路由/静态目录/lifespan（init_db + 协作文档定期落盘），并提供 ASGI 入口 app。
 # 依赖：fastapi、config、db、routers
 # 可调参数：静态目录见 config（VENDOR_DIR/FRONTEND_DIR）
+import asyncio
 from contextlib import asynccontextmanager
 import mimetypes
 
@@ -10,7 +11,9 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
 from .db import init_db
+from .persist import autosave_loop, flush_all
 from .routers import auth, contests, exec as exec_router, files, ws
+from .state import rooms
 
 _settings = get_settings()
 
@@ -42,11 +45,14 @@ class _StaticNoCache(StaticFiles):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """功能：应用生命周期——启动时建表（幂等）。
+    """功能：应用生命周期——启动时建表（幂等）并启动协作文档定期落盘；关闭时停止循环并最后保存一次。
     API: lifespan(FastAPI) → AsyncGenerator
-    依赖：init_db。可调参数：无。"""
+    依赖：init_db、persist、state.rooms。可调参数：无。"""
     init_db()
+    saver = asyncio.create_task(autosave_loop(rooms))
     yield
+    saver.cancel()
+    await flush_all(rooms)
 
 
 def create_app() -> FastAPI:

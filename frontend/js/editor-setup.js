@@ -47,6 +47,8 @@ export async function createEditor(container) {
     folding: true,
     foldingStrategy: 'indentation',
     showFoldingControls: 'mouseover',
+    // 关闭粘性滚动：滚动时 for()/函数头等作用域行不再吸附在编辑器顶端
+    stickyScroll: { enabled: false },
   })
   return editor
 }

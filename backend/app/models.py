@@ -1,10 +1,10 @@
 # models.py — ORM 数据表定义
-# 功能：定义用户/邀请码/比赛/比赛成员/登录会话 5 张表。
+# 功能：定义用户/邀请码/比赛/比赛成员/登录会话/协作文档快照 6 张表。
 # 依赖：sqlalchemy.orm、db.Base
 # 可调参数：表名、字段约束（见各模型 docstring）
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Integer, LargeBinary, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -78,3 +78,13 @@ class AuthSession(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class RoomDoc(Base):
+    """功能：协作文档快照表。key 为房间 key（contest/{slug} 代码、scratch/{slug} 草稿纸），
+    state 为该房间 YDoc 的全量 update；服务重启后据此恢复，避免代码/草稿丢失。"""
+    __tablename__ = "room_docs"
+
+    key: Mapped[str] = mapped_column(String(160), primary_key=True)
+    state: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)

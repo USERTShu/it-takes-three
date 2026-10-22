@@ -42,7 +42,7 @@ class _Session:
 _sessions: dict[tuple[str, int], _Session] = {}
 
 
-def _kill_existing(key: tuple[str, int]) -> None:
+async def _kill_existing(key: tuple[str, int]) -> None:
     """功能：终止并清理该 key 已有的运行/调试会话（对齐 VS Code 再次启动即替换）。
     API: _kill_existing(tuple) → None
     依赖：asyncio。可调参数：无。"""
@@ -50,10 +50,7 @@ def _kill_existing(key: tuple[str, int]) -> None:
     if prev is None:
         return
     if prev.proc is not None:
-        try:
-            prev.proc.terminate()
-        except Exception:
-            pass
+        await prev.proc.terminate()  # 协程：须 await 才会真正终止进程
     if prev.gdb is not None:
         prev.gdb.close()
     cleanup_workdir(prev.workdir)
@@ -90,14 +87,14 @@ async def _authorize(websocket: WebSocket, token: str, slug: str) -> int | None:
 
 @router.websocket("/ws/contest/{slug}/run")
 async def ws_run(websocket: WebSocket, slug: str, token: str = Query(default="")) -> None:
-    """功能：交互式运行会话。start 后台编译并执行，stdout/stderr 流式回传，stdin/kill 控制进程。
+    """功能：交互式运行会话。start 后台编译并执行，stdout/stderr 流式回传，stdin/eof/kill 控制进程。
     依赖：exec。可调参数：RUN_COMPILE_TIMEOUT_SECONDS / RUN_TIME_LIMIT_SECONDS。"""
     user_id = await _authorize(websocket, token, slug)
     if user_id is None:
         return
     await websocket.accept()
     key = (slug, user_id)
-    _kill_existing(key)
+    await _kill_existing(key)
     evt_q: asyncio.Queue = asyncio.Queue()
     session = _Session("run")
     session.workdir = make_workdir(slug, f"run-{user_id}-{uuid.uuid4().hex[:6]}")
@@ -127,6 +124,9 @@ async def ws_run(websocket: WebSocket, slug: str, token: str = Query(default="")
                 elif t == "stdin":
                     if session.proc is not None:
                         await session.proc.write_stdin(msg.get("data", ""))
+                elif t == "eof":
+                    if session.proc is not None:
+                        session.proc.close_stdin()
                 elif t == "kill":
                     if session.proc is not None:
                         await session.proc.terminate()
@@ -141,7 +141,8 @@ async def ws_run(websocket: WebSocket, slug: str, token: str = Query(default="")
             run_task.cancel()
         if session.proc is not None:
             await session.proc.terminate()
-        _sessions.pop(key, None)
+        if _sessions.get(key) is session:  # 已被新连接替换时不要误删新会话
+            _sessions.pop(key, None)
         cleanup_workdir(session.workdir)
 
 
@@ -158,11 +159,25 @@ async def _run_program(room, path: str, session: _Session, evt_q: asyncio.Queue)
         return
     evt_q.put_nowait({"t": "compile", "ok": True})
 
+    # 输出上限：超过 RUN_OUTPUT_LIMIT_BYTES 后不再转发（管道照常读空，程序不会因写满而阻塞），
+    # 防止死循环刷屏把后端队列和浏览器撑爆
+    sent = {"bytes": 0, "cut": False}
+
+    def forward(kind: str, data: str) -> None:
+        if sent["cut"]:
+            return
+        sent["bytes"] += len(data)
+        if sent["bytes"] > _settings.RUN_OUTPUT_LIMIT_BYTES:
+            sent["cut"] = True
+            evt_q.put_nowait({"t": "stderr", "data": "\n[输出过多，已截断，程序继续运行]\n"})
+            return
+        evt_q.put_nowait({"t": kind, "data": data})
+
     def on_out(data: str) -> None:
-        evt_q.put_nowait({"t": "stdout", "data": data})
+        forward("stdout", data)
 
     def on_err(data: str) -> None:
-        evt_q.put_nowait({"t": "stderr", "data": data})
+        forward("stderr", data)
 
     proc = RunProcess(bin_path, session.workdir,
                       time_limit_s=_settings.RUN_TIME_LIMIT_SECONDS,
@@ -192,7 +207,7 @@ async def ws_debug(websocket: WebSocket, slug: str, token: str = Query(default="
         return
     await websocket.accept()
     key = (slug, user_id)
-    _kill_existing(key)
+    await _kill_existing(key)
     evt_q: asyncio.Queue = asyncio.Queue()
     session = _Session("debug")
     session.workdir = make_workdir(slug, f"dbg-{user_id}-{uuid.uuid4().hex[:6]}")
@@ -252,7 +267,8 @@ async def ws_debug(websocket: WebSocket, slug: str, token: str = Query(default="
             start_task.cancel()
         if session.gdb is not None:
             session.gdb.close()
-        _sessions.pop(key, None)
+        if _sessions.get(key) is session:  # 已被新连接替换时不要误删新会话
+            _sessions.pop(key, None)
         cleanup_workdir(session.workdir)
 
 

@@ -9,8 +9,11 @@
 #   WS_MAX_MESSAGE_BYTES   WebSocket 单条消息大小上限（默认 16MB，防滥用）
 #   RUN_COMPILE_TIMEOUT_SECONDS 编译单次超时秒数（默认 20）
 #   RUN_TIME_LIMIT_SECONDS  程序运行时限秒数（默认 10，超时 kill 并标记 TLE）
+#   RUN_MEMORY_LIMIT_MB     运行程序的地址空间上限 MB（默认 1024，≤0 不限制；防失控程序吃光内存）
+#   RUN_OUTPUT_LIMIT_BYTES  单次运行转发到前端的输出上限字节（默认 1MB，超出截断，防刷屏卡死浏览器）
 #   RUN_DIR                 运行/调试工作目录（默认 data/run，按 slug/session 隔离）
 #   GDB_BIN                 gdb 可执行路径（默认 gdb）
+#   DOC_SAVE_INTERVAL_SECONDS 协作文档（代码/草稿纸）落盘间隔秒数（默认 2）
 #   VENDOR_DIR / FRONTEND_DIR 静态资源目录（默认 vendor/、frontend/，相对项目根目录）
 import os
 from dataclasses import dataclass, field
@@ -34,8 +37,11 @@ class Settings:
     WS_MAX_MESSAGE_BYTES: int = field(default_factory=lambda: int(_env("WS_MAX_MESSAGE_BYTES", str(16 * 1024 * 1024))))
     RUN_COMPILE_TIMEOUT_SECONDS: int = field(default_factory=lambda: int(_env("RUN_COMPILE_TIMEOUT_SECONDS", "20")))
     RUN_TIME_LIMIT_SECONDS: int = field(default_factory=lambda: int(_env("RUN_TIME_LIMIT_SECONDS", "10")))
+    RUN_MEMORY_LIMIT_MB: int = field(default_factory=lambda: int(_env("RUN_MEMORY_LIMIT_MB", "1024")))
+    RUN_OUTPUT_LIMIT_BYTES: int = field(default_factory=lambda: int(_env("RUN_OUTPUT_LIMIT_BYTES", str(1024 * 1024))))
     RUN_DIR: str = field(default_factory=lambda: _env("RUN_DIR", os.path.join(PROJECT_ROOT, "data", "run")))
     GDB_BIN: str = field(default_factory=lambda: _env("GDB_BIN", "gdb"))
+    DOC_SAVE_INTERVAL_SECONDS: float = field(default_factory=lambda: float(_env("DOC_SAVE_INTERVAL_SECONDS", "2")))
     VENDOR_DIR: str = field(default_factory=lambda: _env("VENDOR_DIR", os.path.join(PROJECT_ROOT, "vendor")))
     FRONTEND_DIR: str = field(default_factory=lambda: _env("FRONTEND_DIR", os.path.join(PROJECT_ROOT, "frontend")))
 

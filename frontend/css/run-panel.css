@@ -152,7 +152,8 @@
   background: #1a1a2a;
 }
 .term-prompt { color: var(--accent); font-family: monospace; font-size: 13px; }
-#term-input {
+#term-input,
+#console-input {
   flex: 1;
   background: transparent;
   border: none;
@@ -160,8 +161,25 @@
   color: var(--text);
   font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
   font-size: 12.5px;
+  line-height: 18px;
+  resize: none; /* textarea：高度由 JS 随内容调整 */
+  padding: 2px 0;
+  overflow-y: auto;
 }
-#term-input:disabled { color: var(--muted); }
+#term-input:disabled,
+#console-input:disabled { color: var(--muted); }
+.term-eof {
+  flex: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.term-eof:hover:not(:disabled) { color: var(--text); }
+.term-eof:disabled { opacity: .4; cursor: default; }
 
 /* ---- 变量表 / 调用堆栈 ---- */
 .kv-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }

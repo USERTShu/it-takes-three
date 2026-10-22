@@ -1,6 +1,8 @@
 # contests.py — 比赛管理接口
 # 功能：创建比赛（创建者自动成为成员）、列出我的比赛、比赛详情、加入比赛（幂等）、
-#       开始比赛（仅创建者，随机分配调色板颜色并记录 start_time）。
+#       开始比赛（仅创建者，随机分配调色板颜色并记录 start_time）、交接队长。
+# 队长：creator_id 即当前队长（创建者默认为队长），只有队长能修改代码文件；
+#       交接队长时改写 creator_id，开始比赛等创建者权限随之转移。
 # 依赖：fastapi、sqlalchemy、config、models、schemas、deps
 # 可调参数：DEFAULT_DURATION_MINUTES（config）、PALETTE 调色板（config，开始时取前 N 色）
 import random
@@ -11,7 +13,8 @@ from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..deps import get_current_user, get_db
 from ..models import Contest, ContestMember, User
-from ..schemas import ContestCreate, ContestOut, MemberOut
+from ..schemas import CaptainTransfer, ContestCreate, ContestOut, MemberOut
+from ..state import rooms
 
 router = APIRouter()
 
@@ -95,23 +98,56 @@ def get_contest(slug: str, db: Session = Depends(get_db),
 @router.post("/{slug}/join", response_model=ContestOut)
 def join_contest(slug: str, db: Session = Depends(get_db),
                  user: User = Depends(get_current_user)) -> ContestOut:
-    """功能：加入比赛（幂等：已是成员则直接返回）。已开始/已结束的比赛不可加入。
+    """功能：加入比赛（幂等：已是成员则直接返回）。支持中途加入：
+    比赛已开始时，为新成员分配一个尚未被占用的 PALETTE 颜色。
     请求：POST /api/contests/{slug}/join
-    依赖：get_db、get_current_user。可调参数：无。"""
+    依赖：get_db、get_current_user、config.PALETTE。可调参数：PALETTE（config）。"""
     contest = db.query(Contest).filter(Contest.slug == slug).first()
     if contest is None:
         raise HTTPException(status_code=404, detail="比赛不存在")
-    if contest.status != "created":
-        raise HTTPException(status_code=409, detail="比赛已开始，无法加入")
     member = (
         db.query(ContestMember)
         .filter(ContestMember.contest_id == contest.id, ContestMember.user_id == user.id)
         .first()
     )
     if member is None:
-        db.add(ContestMember(contest_id=contest.id, user_id=user.id))
+        color = None
+        if contest.status == "started":
+            used = {m.color for m in contest.members if m.color}
+            free = [c for c in _settings.PALETTE if c not in used]
+            # 调色板用尽时允许重复颜色（人数超过 PALETTE 长度的极端情况）
+            color = random.choice(free or list(_settings.PALETTE))
+        db.add(ContestMember(contest_id=contest.id, user_id=user.id, color=color))
         db.commit()
         db.refresh(contest)
+    return _contest_out(db, contest)
+
+
+@router.post("/{slug}/captain", response_model=ContestOut)
+def transfer_captain(slug: str, body: CaptainTransfer, db: Session = Depends(get_db),
+                     user: User = Depends(get_current_user)) -> ContestOut:
+    """功能：交接队长。仅当前队长可调用，接任者须为该比赛成员；同步更新代码房间的写权限。
+    请求：POST /api/contests/{slug}/captain  body: {"user_id": int}
+    依赖：get_db、get_current_user、state.rooms。可调参数：无。
+    返回：ContestOut（creator_id 为新队长）。"""
+    contest = db.query(Contest).filter(Contest.slug == slug).first()
+    if contest is None:
+        raise HTTPException(status_code=404, detail="比赛不存在")
+    if contest.creator_id != user.id:
+        raise HTTPException(status_code=403, detail="只有队长可以交接身份")
+    target = (
+        db.query(ContestMember)
+        .filter(ContestMember.contest_id == contest.id, ContestMember.user_id == body.user_id)
+        .first()
+    )
+    if target is None:
+        raise HTTPException(status_code=400, detail="接任者不是该比赛成员")
+    contest.creator_id = body.user_id
+    db.commit()
+    db.refresh(contest)
+    room = rooms.get(slug)
+    if room is not None:
+        room.captain_id = contest.creator_id
     return _contest_out(db, contest)
 
 
